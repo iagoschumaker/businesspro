@@ -1,62 +1,103 @@
-import React, { useState } from 'react';
-import { Plus, Search, Filter, FileText, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Filter, RefreshCw, Loader, Edit } from 'lucide-react';
 import Card from '../../components/Common/Card';
 import Button from '../../components/Common/Button';
 import Modal from '../../components/Common/Modal';
 import OrderForm from './OrderForm';
-import { generateOrderPDF, OrderPDFData } from '../../utils/pdfGenerator';
+import { ordersService, customersService } from '../../services/api';
+
+interface Order {
+  id: string;
+  customer_id: number;
+  customer_name?: string;
+  date: string;
+  total: number;
+  status: string;
+  items: number;
+  payment_method?: string;
+  due_date?: string;
+  notes?: string;
+  items_count?: number;
+}
 
 const Orders: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const orders = [
-    {
-      id: '#12345',
-      customer: 'João Silva',
-      date: '2024-01-15',
-      total: 1250.00,
-      status: 'Confirmado',
-      items: 3,
-      paymentMethod: 'Boleto',
-      dueDate: '2024-01-25'
-    },
-    {
-      id: '#12346',
-      customer: 'Maria Santos',
-      date: '2024-01-15',
-      total: 890.00,
-      status: 'Pendente',
-      items: 2,
-      paymentMethod: 'PIX',
-      dueDate: '2024-01-20'
-    },
-    {
-      id: '#12347',
-      customer: 'Carlos Oliveira',
-      date: '2024-01-14',
-      total: 2100.00,
-      status: 'Enviado',
-      items: 5,
-      paymentMethod: 'Cartão',
-      dueDate: '2024-01-30'
-    },
-    {
-      id: '#12348',
-      customer: 'Ana Costa',
-      date: '2024-01-14',
-      total: 750.00,
-      status: 'Entregue',
-      items: 1,
-      paymentMethod: 'Dinheiro',
-      dueDate: '2024-01-18'
+  const refreshOrderList = async () => {
+    try {
+      setLoading(true);
+      console.log('Buscando pedidos do banco de dados...');
+      const response = await ordersService.getAll();
+      console.log('Resposta bruta da API de pedidos:', response);
+      
+      if (response) {
+        console.log('Pedidos recebidos:', response);
+        
+        // Formatar os dados recebidos para o formato esperado pelo componente
+        const formattedOrders = await Promise.all((Array.isArray(response) ? response : [response]).map(async (order: any) => {
+          // Para cada pedido, buscar os dados do cliente se necessário
+          let customerName = order.customer_name || '';
+          
+          if (!customerName && order.customer_id) {
+            try {
+              const customerResponse = await customersService.getById(order.customer_id);
+              if (customerResponse) {
+                customerName = customerResponse.name || 'Cliente sem nome';
+              }
+            } catch (err) {
+              console.error('Erro ao buscar dados do cliente:', err);
+            }
+          }
+          
+          return {
+            id: order.id ? String(order.id) : '',
+            customer_id: order.customer_id || 0,
+            customer_name: customerName,
+            date: order.date || new Date().toISOString().split('T')[0],
+            total: order.total || 0,
+            status: order.status || 'Pendente',
+            items: order.items_count || 0,
+            payment_method: order.payment_method || '',
+            due_date: order.due_date || '',
+            notes: order.notes || ''
+          };
+        }));
+        
+        setOrders(formattedOrders);
+        setError(null);
+      } else {
+        console.error('Resposta da API não contém dados de pedidos');
+        setError('Não há pedidos cadastrados no banco de dados.');
+        setOrders([]);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar pedidos:', err);
+      setError('Erro ao carregar pedidos do banco de dados');
+      setOrders([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const filteredOrders = orders.filter(order =>
-    order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.customer.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Carregar pedidos quando o componente montar
+  useEffect(() => {
+    refreshOrderList();
+  }, []);
+  
+  const filteredOrders = orders.filter(order => {
+    // Garante que o ID é tratado como string antes de chamar toLowerCase()
+    const orderId = String(order.id).toLowerCase();
+    const searchTermLower = searchTerm.toLowerCase();
+    
+    return orderId.includes(searchTermLower) ||
+      (order.customer_name && order.customer_name.toLowerCase().includes(searchTermLower));
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -73,209 +114,207 @@ const Orders: React.FC = () => {
     }
   };
 
-  const generatePDF = (orderId: string) => {
-    // Mock order data for PDF generation
-    const orderData: OrderPDFData = {
-      id: orderId,
-      customer: {
-        name: 'João Silva',
-        document: '123.456.789-00',
-        address: 'Rua das Flores, 123 - Centro, São Paulo - SP',
-        phone: '(11) 99999-9999',
-        email: 'joao@email.com'
-      },
-      date: '2024-01-15',
-      dueDate: '2024-01-25',
-      paymentMethod: 'Boleto',
-      items: [
-        {
-          productName: 'Produto Premium A',
-          quantity: 2,
-          unitPrice: 89.90,
-          total: 179.80
-        },
-        {
-          productName: 'Produto Standard B',
-          quantity: 1,
-          unitPrice: 49.90,
-          total: 49.90
-        }
-      ],
-      subtotal: 229.70,
-      discount: 0,
-      total: 229.70,
-      notes: 'Entrega expressa solicitada'
-    };
-
-    generateOrderPDF(orderData);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Pedidos
         </h1>
-        <Button icon={Plus} onClick={() => setIsModalOpen(true)}>
-          Novo Pedido
-        </Button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card padding="sm">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {orders.length}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Total de Pedidos
-            </div>
-          </div>
-        </Card>
-        <Card padding="sm">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              R$ {orders.reduce((sum, order) => sum + order.total, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Valor Total
-            </div>
-          </div>
-        </Card>
-        <Card padding="sm">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-              {orders.filter(o => o.status === 'Pendente').length}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Pendentes
-            </div>
-          </div>
-        </Card>
-        <Card padding="sm">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-              {orders.filter(o => o.status === 'Entregue').length}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Entregues
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Search and Filter */}
-      <Card>
-        <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <input
-              type="text"
-              placeholder="Buscar por número do pedido ou cliente..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <Button variant="secondary" icon={Filter}>
-            Filtros
+        <div className="flex space-x-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={RefreshCw}
+            onClick={refreshOrderList}
+          >
+            Atualizar
+          </Button>
+          <Button 
+            variant="primary"
+            size="sm"
+            icon={Plus} 
+            onClick={() => setIsModalOpen(true)}
+          >
+            Novo Pedido
           </Button>
         </div>
-      </Card>
+      </div>
 
-      {/* Orders Table */}
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900/50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Pedido
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Data
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Itens
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Total
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredOrders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      {order.id}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {order.paymentMethod}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {order.customer}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {new Date(order.date).toLocaleDateString('pt-BR')}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Venc: {new Date(order.dueDate).toLocaleDateString('pt-BR')}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {order.items} item(s)
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                    R$ {order.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        icon={FileText}
-                        onClick={() => generatePDF(order.id)}
-                      >
-                        PDF
-                      </Button>
-                      <Button size="sm">
-                        Editar
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <Card className="overflow-hidden">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 justify-between items-center">
+          <div className="flex items-center space-x-3 w-full md:w-auto">
+            <div className="relative flex-grow max-w-sm">
+              <input
+                type="text"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white dark:bg-gray-800 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 sm:text-sm"
+                placeholder="Buscar pedidos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" />
+              </div>
+            </div>
+            
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={Filter}
+            >
+              Filtrar
+            </Button>
+          </div>
         </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center p-8">
+            <Loader className="h-8 w-8 animate-spin text-blue-500" />
+            <span className="ml-2 text-gray-500">Carregando pedidos...</span>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button variant="secondary" onClick={refreshOrderList}>Tentar novamente</Button>
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <p className="text-gray-500 dark:text-gray-400 mb-2">Nenhum pedido encontrado</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
+              {searchTerm ? 'Tente outro termo de busca ou' : 'Cadastre seu primeiro pedido.'}
+            </p>
+            {searchTerm && (
+              <Button 
+                variant="secondary" 
+                className="mb-2"
+                onClick={() => setSearchTerm('')}
+              >
+                Limpar busca
+              </Button>
+            )}
+            <Button 
+              variant="primary" 
+              icon={Plus}
+              onClick={() => setIsModalOpen(true)}
+            >
+              Novo Pedido
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Pedido
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Cliente
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Data
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Itens
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Total
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Ações
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredOrders.map((order) => (
+                  <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {order.id}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {order.payment_method}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {order.customer_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        {new Date(order.date).toLocaleDateString('pt-BR')}
+                      </div>
+                      {order.due_date && (
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          Venc: {new Date(order.due_date).toLocaleDateString('pt-BR')}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {order.items} item(s)
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                      R$ {order.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                        {order.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={Edit}
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            setIsEditModalOpen(true);
+                          }}
+                          className="p-1"
+                        >
+                          Editar
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
-      {/* Order Form Modal */}
+      {/* Order Form Modal - Novo Pedido */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Novo Pedido"
         size="xl"
       >
-        <OrderForm onClose={() => setIsModalOpen(false)} />
+        <OrderForm 
+          onClose={() => {
+            setIsModalOpen(false);
+            refreshOrderList();
+          }} 
+        />
+      </Modal>
+      
+      {/* Order Form Modal - Editar Pedido */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title={`Editar Pedido: ${selectedOrder?.id || ''}`}
+        size="xl"
+      >
+        <OrderForm 
+          order={selectedOrder!}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            refreshOrderList();
+          }} 
+        />
       </Modal>
     </div>
   );

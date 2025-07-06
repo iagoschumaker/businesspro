@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_BASE_URL = 'http://localhost:3001/api';
 
 // Criar instância do axios
-const api = axios.create({
+export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
@@ -31,7 +31,20 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
+    // Se recebermos 304 Not Modified, não é realmente um erro
+    // Significa que podemos usar dados em cache
+    if (error.response?.status === 304) {
+      console.log('Código 304 recebido: Usando dados em cache');
+      // Transformamos o erro 304 em uma resposta bem-sucedida com dados vazios
+      // O componente deve verificar se já tem dados e mantê-los
+      return Promise.resolve({ 
+        data: { data: [] }, 
+        status: 304, 
+        statusText: 'Not Modified',
+        headers: error.response.headers,
+        config: error.config
+      });
+    } else if (error.response?.status === 401) {
       // Token expirado ou inválido
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -78,7 +91,8 @@ export interface Product {
   cest?: string;
   unit: string;
   cost_price: number;
-  sale_price: number;
+  price?: number; // O banco de dados usa 'price'
+  sale_price: number; // A API do servidor espera 'sale_price'
   stock: number;
   min_stock: number;
   category?: string;
@@ -221,8 +235,8 @@ export const customersService = {
 
 // Produtos
 export const productsService = {
-  getAll: async (params?: { search?: string; category?: string; status?: string; page?: number; limit?: number }) => {
-    const response = await api.get('/products', { params });
+  getAll: async () => {
+    const response = await api.get('/products');
     return response.data;
   },
 
@@ -231,13 +245,13 @@ export const productsService = {
     return response.data;
   },
 
-  create: async (product: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'status'>) => {
-    const response = await api.post('/products', product);
+  create: async (productData: any) => {
+    const response = await api.post('/products', productData);
     return response.data;
   },
 
-  update: async (id: number, product: Partial<Product>) => {
-    const response = await api.put(`/products/${id}`, product);
+  update: async (id: number, productData: any) => {
+    const response = await api.put(`/products/${id}`, productData);
     return response.data;
   },
 

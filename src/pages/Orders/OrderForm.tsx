@@ -1,10 +1,22 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import Button from '../../components/Common/Button';
 import { ordersService, customersService, productsService } from '../../services/api';
 
 interface OrderFormProps {
   onClose: () => void;
+  order?: {
+    id: string;
+    customer_id: number;
+    customer_name?: string;
+    date: string;
+    total: number;
+    status: string;
+    items: number;
+    payment_method?: string;
+    due_date?: string;
+    notes?: string;
+  };
 }
 
 interface OrderItem {
@@ -16,7 +28,7 @@ interface OrderItem {
   isSearching?: boolean;
 }
 
-const OrderForm: React.FC<OrderFormProps> = ({ onClose }) => {
+const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
   // Estado para controlar mensagem de sucesso
   const [success, setSuccess] = useState(false);
   
@@ -50,35 +62,103 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose }) => {
   const [customers, setCustomers] = useState<Array<{id: string, name: string, document: string}>>([]);
   const [products, setProducts] = useState<Array<{id: string, name: string, price: number}>>([]);
   
+  // Preencher o formulário com os dados do pedido existente quando for edição
+  useEffect(() => {
+    if (order) {
+      console.log('Editando pedido existente:', order);
+      setFormData({
+        customerId: order.customer_id.toString(),
+        customerName: order.customer_name || '',
+        date: order.date,
+        paymentMethod: order.payment_method || 'Boleto',
+        dueDate: order.due_date || '',
+        installments: 1, // Default, pode ser ajustado se necessário
+        installmentPlan: '30',
+        notes: order.notes || ''
+      });
+
+      // Carregar os itens do pedido será implementado após integração completa da API
+      // Por enquanto, mantemos pelo menos um item vazio para o formulário
+    }
+  }, [order]);
+
   // Carregando clientes e produtos do banco de dados quando o componente monta
   useEffect(() => {
     const fetchCustomersAndProducts = async () => {
       try {
+        console.log('Iniciando carregamento de clientes e produtos...');
+        
         // Buscando clientes do banco de dados
+        console.log('Chamando customersService.getAll()...');
         const customersResponse = await customersService.getAll();
-        if (customersResponse && customersResponse.data) {
-          const formattedCustomers = customersResponse.data.map((customer: any) => ({
-            id: customer.id.toString(),
-            name: customer.name,
-            document: customer.document
+        console.log('Resposta bruta da API de clientes:', customersResponse);
+        
+        if (customersResponse) {
+          // Garantir que a resposta é um array
+          const customersArray = Array.isArray(customersResponse) 
+            ? customersResponse 
+            : [customersResponse];
+            
+          console.log('Dados brutos de clientes:', customersArray);
+          
+          const formattedCustomers = customersArray.map((customer: any) => ({
+            id: customer.id ? customer.id.toString() : '',
+            name: customer.name || 'Cliente sem nome',
+            document: customer.document || 'Sem documento'
           }));
+          
+          console.log('Clientes formatados:', formattedCustomers);
           setCustomers(formattedCustomers);
-          console.log('Clientes carregados:', formattedCustomers);
+          
+          // Mostrar o primeiro cliente como exemplo
+          if (formattedCustomers.length > 0) {
+            console.log('Exemplo de cliente carregado:', formattedCustomers[0]);
+          } else {
+            console.warn('Nenhum cliente encontrado no banco de dados!');
+            setCustomers([]);
+          }
+        } else {
+          console.error('Resposta da API de clientes não contém dados!');
         }
         
         // Buscando produtos do banco de dados
+        console.log('Chamando productsService.getAll()...');
         const productsResponse = await productsService.getAll();
-        if (productsResponse && productsResponse.data) {
-          const formattedProducts = productsResponse.data.map((product: any) => ({
-            id: product.id.toString(),
-            name: product.name,
-            price: product.price
+        console.log('Resposta bruta da API de produtos:', productsResponse);
+        
+        if (productsResponse) {
+          // Garantir que a resposta é um array
+          const productsArray = Array.isArray(productsResponse) 
+            ? productsResponse 
+            : [productsResponse];
+            
+          console.log('Dados brutos de produtos:', productsArray);
+          
+          const formattedProducts = productsArray.map((product: any) => ({
+            id: product.id ? product.id.toString() : '',
+            name: product.name || 'Produto sem nome',
+            price: typeof product.price === 'number' ? product.price : 0
           }));
+          
+          console.log('Produtos formatados:', formattedProducts);
           setProducts(formattedProducts);
-          console.log('Produtos carregados:', formattedProducts);
+          
+          // Mostrar o primeiro produto como exemplo
+          if (formattedProducts.length > 0) {
+            console.log('Exemplo de produto carregado:', formattedProducts[0]);
+          } else {
+            console.warn('Nenhum produto encontrado no banco de dados!');
+            setProducts([]);
+          }
+        } else {
+          console.error('Resposta da API de produtos não contém dados!');
         }
+        
       } catch (error) {
         console.error('Erro ao carregar clientes ou produtos:', error);
+        alert('Erro ao carregar dados de clientes e produtos. Por favor, tente novamente mais tarde.');
+        setCustomers([]);
+        setProducts([]);
       }
     };
     
@@ -94,12 +174,18 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose }) => {
     
     const numInstallments = parseInt(data.installments.toString());
     const intervalDays = parseInt(data.installmentPlan);
-    const firstDate = new Date(data.dueDate);
-    const dates: string[] = [data.dueDate];
     
+    // Usa a data de vencimento informada como primeira parcela
+    const firstDueDate = new Date(data.dueDate);
+    const dates: string[] = [];
+    
+    // A primeira parcela é a data de vencimento informada
+    dates.push(data.dueDate);
+    
+    // Calcula as parcelas seguintes com base na primeira
     for (let i = 1; i < numInstallments; i++) {
-      const nextDate = new Date(firstDate);
-      nextDate.setDate(nextDate.getDate() + (intervalDays * i));
+      const nextDate = new Date(firstDueDate);
+      nextDate.setDate(firstDueDate.getDate() + (intervalDays * i));
       dates.push(nextDate.toISOString().split('T')[0]);
     }
     
@@ -115,7 +201,8 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose }) => {
     setFormData(newData);
     
     // Recalcular datas das parcelas quando os campos relevantes mudarem
-    if (['dueDate', 'installments', 'installmentPlan'].includes(e.target.name)) {
+    // Usando a data de vencimento (dueDate) como data da primeira parcela
+    if (['dueDate', 'installments', 'installmentPlan', 'paymentMethod'].includes(e.target.name)) {
       calculateInstallmentDates(newData);
     }
   };
@@ -236,7 +323,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose }) => {
 
   const totalOrder = items.reduce((sum, item) => sum + item.total, 0);
   
-  // Única função para salvar o pedido
+  // Função para salvar ou atualizar o pedido
   const handleSaveOrder = () => {
     console.log('Salvando pedido...');
     
@@ -757,25 +844,44 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose }) => {
                 
                 console.log('Dados finais enviados para API:', JSON.stringify(finalOrderData));
                 
-                // Chamada ao serviço de API com os dados corrigidos
-                ordersService.create(finalOrderData)
-                  .then(response => {
-                    console.log('Pedido criado com sucesso!', response);
-                    // Define success como true para mostrar mensagem
-                    setSuccess(true);
-                    // Fecha o formulário após 1.5 segundos
-                    setTimeout(() => {
-                      onClose();
-                    }, 1500);
-                  })
-                  .catch(error => {
-                    console.error('Erro ao salvar pedido:', error);
-                    if (error.response) {
-                      console.error('Status:', error.response.status);
-                      console.error('Detalhes do erro:', error.response.data);
-                    }
-                    alert('Erro ao criar pedido. Verifique os dados e tente novamente.');
-                  });
+                // Verificar se é criação ou atualização
+                const isUpdate = !!order?.id;
+                
+                if (isUpdate) {
+                  // Para pedidos existentes, só atualizamos o status
+                  const orderId = parseInt(order!.id, 10);
+                  
+                  ordersService.updateStatus(orderId, formData.paymentMethod)
+                    .then(() => {
+                      setSuccess(true);
+                      setTimeout(() => {
+                        onClose();
+                      }, 1500);
+                    })
+                    .catch(() => {
+                      alert('Erro ao atualizar status do pedido.');
+                    });
+                } else {
+                  // Criar novo pedido normalmente
+                  ordersService.create(finalOrderData)
+                    .then(response => {
+                      console.log('Pedido criado com sucesso!', response);
+                      // Define success como true para mostrar mensagem
+                      setSuccess(true);
+                      // Fecha o formulário após 1.5 segundos
+                      setTimeout(() => {
+                        onClose();
+                      }, 1500);
+                    })
+                    .catch(error => {
+                      console.error('Erro ao criar pedido:', error);
+                      if (error.response) {
+                        console.error('Status:', error.response.status);
+                        console.error('Detalhes do erro:', error.response.data);
+                      }
+                      alert('Erro ao criar pedido. Verifique os dados e tente novamente.');
+                    });
+                }
               } catch (error) {
                 console.error('Erro ao processar dados para API:', error);
                 alert('Erro ao processar dados do pedido: ' + (error as Error).message);
