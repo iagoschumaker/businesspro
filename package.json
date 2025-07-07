@@ -18,10 +18,12 @@
     "date-fns": "^2.30.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.20.1",
+    "react-toastify": "^11.0.5",
     "recharts": "^2.8.0"
   },
   "devDependencies": {

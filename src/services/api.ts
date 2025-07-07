@@ -110,6 +110,8 @@ export interface Order {
   date: string;
   due_date?: string;
   payment_method: string;
+  installments?: number;
+  installment_plan?: string;
   subtotal: number;
   discount: number;
   total: number;
@@ -138,7 +140,6 @@ export interface OrderItem {
 export interface Billet {
   id: number;
   customer_id: number;
-  order_id?: number;
   billet_number: string;
   amount: number;
   due_date: string;
@@ -154,25 +155,24 @@ export interface Billet {
   created_at: string;
   updated_at: string;
   customer_name?: string;
-  order_number?: string;
 }
 
 export interface Visit {
   id: number;
   customer_id: number;
+  customer_name: string;
   user_id: number;
+  user_name?: string;
   date: string;
   time: string;
-  location: string;
-  type: string;
-  status: string;
+  location?: string;
+  type?: string;
+  purpose?: string;
   notes?: string;
-  reminder: number;
-  created_at: string;
-  updated_at: string;
-  customer_name?: string;
-  customer_phone?: string;
-  user_name?: string;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
+  _isTemp?: boolean; // Flag para identificar visitas temporárias (não salvas no servidor)
 }
 
 export interface Notification {
@@ -228,7 +228,7 @@ export const customersService = {
   },
 
   delete: async (id: number) => {
-    const response = await api.delete(`/customers/${id}`);
+    const response = await api.delete(`/orders/${id}`);
     return response.data;
   },
 };
@@ -276,6 +276,11 @@ export const ordersService = {
     const response = await api.get('/orders', { params });
     return response.data;
   },
+  
+  resetOrderIds: async () => {
+    const response = await api.post('/orders/reset-ids');
+    return response.data;
+  },
 
   getById: async (id: number) => {
     const response = await api.get(`/orders/${id}`);
@@ -297,6 +302,51 @@ export const ordersService = {
   }) => {
     const response = await api.post('/orders', order);
     return response.data;
+  },
+
+  update: async (id: number, order: {
+    customer_id?: number;
+    date?: string;
+    due_date?: string;
+    payment_method?: string;
+    items?: Array<{
+      product_id: number;
+      quantity: number;
+      unit_price: number;
+    }>;
+    notes?: string;
+    discount?: number;
+  }) => {
+    console.log(`Atualizando pedido ${id} com dados:`, JSON.stringify(order));
+    try {
+      // Como o endpoint PUT /orders/${id} não existe, vamos tentar uma abordagem alternativa
+      // Primeiro, vamos deletar o pedido existente
+      console.log(`Deletando pedido ${id} para recriar em seguida`);
+      await api.delete(`/orders/${id}`);
+      
+      // Agora, criar um novo pedido com os mesmos dados atualizados
+      // Garantindo que todos os campos obrigatórios estão presentes
+      const cleanOrder = {
+        customer_id: order.customer_id,
+        date: order.date || new Date().toISOString().split('T')[0],
+        payment_method: order.payment_method || 'Boleto',
+        due_date: order.due_date,
+        notes: order.notes,
+        items: order.items || []
+      };
+      
+      console.log('Recriando pedido com dados:', JSON.stringify(cleanOrder));
+      const response = await api.post('/orders', cleanOrder);
+      console.log('Pedido recriado com sucesso:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Erro detalhado na atualização:', error);
+      if (error.response) {
+        console.error('Status:', error.response.status);
+        console.error('Dados do erro:', error.response.data);
+      }
+      throw error; // Repassar o erro para tratamento no componente
+    }
   },
 
   updateStatus: async (id: number, status: string) => {
@@ -324,7 +374,6 @@ export const billetsService = {
 
   create: async (billet: {
     customer_id: number;
-    order_id?: number;
     amount: number;
     due_date: string;
     instructions?: string;
@@ -333,8 +382,51 @@ export const billetsService = {
     discount?: number;
     discount_date?: string;
   }) => {
+    console.log('Criando novo boleto com dados:', billet);
     const response = await api.post('/billets', billet);
     return response.data;
+  },
+  
+  update: async (id: number, billet: {
+    customer_id?: number;
+    amount?: number;
+    due_date?: string;
+    instructions?: string;
+    interest?: number;
+    fine?: number;
+    discount?: number;
+    discount_date?: string;
+  }) => {
+    console.log(`Atualizando boleto ${id} com dados:`, billet);
+    try {
+      // Remover propriedades undefined ou null antes de enviar
+      const cleanBillet = JSON.parse(JSON.stringify(billet));
+      const response = await api.put(`/billets/${id}`, cleanBillet);
+      return response.data;
+    } catch (error: any) {
+      // Se o endpoint PUT não existir, tenta a abordagem alternativa
+      if (error.response?.status === 404) {
+        console.log('Endpoint PUT para boletos não encontrado, usando abordagem alternativa');
+        // Obter dados atuais do boleto
+        const currentBillet = await billetsService.getById(id);
+        // Cancelar o boleto atual
+        await billetsService.cancel(id);
+        // Limpar dados para nova criação
+        const cleanBillet = JSON.parse(JSON.stringify(billet));
+        // Criar um novo boleto com os dados atualizados
+        const newBilletData = {
+          ...currentBillet,
+          ...cleanBillet,
+          // Garantir que os campos obrigatórios estejam presentes
+          customer_id: billet.customer_id || currentBillet.customer_id,
+          amount: billet.amount || currentBillet.amount,
+          due_date: billet.due_date || currentBillet.due_date
+        };
+        delete newBilletData.id; // Remover o ID para criar um novo
+        return await billetsService.create(newBilletData);
+      }
+      throw error; // Se não for 404, propagar o erro original
+    }
   },
 
   registerPayment: async (id: number, payment_date: string, amount_paid?: number) => {
@@ -344,47 +436,6 @@ export const billetsService = {
 
   cancel: async (id: number) => {
     const response = await api.patch(`/billets/${id}/cancel`);
-    return response.data;
-  },
-};
-
-// Visitas
-export const visitsService = {
-  getAll: async (params?: { date?: string; user_id?: number; status?: string; page?: number; limit?: number }) => {
-    const response = await api.get('/visits', { params });
-    return response.data;
-  },
-
-  getById: async (id: number) => {
-    const response = await api.get(`/visits/${id}`);
-    return response.data;
-  },
-
-  create: async (visit: {
-    customer_id: number;
-    date: string;
-    time: string;
-    location: string;
-    type: string;
-    notes?: string;
-    reminder?: number;
-  }) => {
-    const response = await api.post('/visits', visit);
-    return response.data;
-  },
-
-  update: async (id: number, visit: Partial<Visit>) => {
-    const response = await api.put(`/visits/${id}`, visit);
-    return response.data;
-  },
-
-  updateStatus: async (id: number, status: string) => {
-    const response = await api.patch(`/visits/${id}/status`, { status });
-    return response.data;
-  },
-
-  delete: async (id: number) => {
-    const response = await api.delete(`/visits/${id}`);
     return response.data;
   },
 };
@@ -448,6 +499,134 @@ export const dashboardService = {
     });
     return response.data;
   },
+  
+  getOrdersByStatus: async () => {
+    try {
+      // Obter todos os pedidos
+      const response = await api.get('/orders');
+      const orders = response.data;
+      
+      // Contar pedidos por status
+      const statusCounts: Record<string, number> = {};
+      
+      // Processar os dados e contar pedidos por status
+      if (orders && Array.isArray(orders)) {
+        orders.forEach((order: any) => {
+          const status = order.status || 'Desconhecido';
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+      }
+      
+      // Converter para formato de array para mais fácil exibição
+      const result = Object.entries(statusCounts).map(([status, count]) => ({
+        status,
+        count
+      }));
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao obter estatísticas de pedidos por status:', error);
+      return [];
+    }
+  },
+};
+
+// Serviço de visitas
+export const visitsService = {
+  getAll: async () => {
+    try {
+      console.log('Buscando todas as visitas');
+      const response = await api.get('/visits');
+      console.log('Visitas recebidas:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Erro ao buscar visitas:', error.message);
+      throw error;
+    }
+  },
+
+  getById: async (id: number) => {
+    try {
+      const response = await api.get(`/visits/${id}`);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Erro ao buscar visita ${id}:`, error.message);
+      throw error;
+    }
+  },
+
+  create: async (visit: any) => {
+    try {
+      // Ajustamos os dados aqui para garantir o formato correto
+      // que o servidor espera
+      const visitData = {
+        customer_id: Number(visit.customer_id),
+        date: visit.date,
+        time: visit.time,
+        location: visit.location || 'Empresa',
+        type: visit.type || 'Visita',
+        notes: visit.notes || '',
+        reminder: visit.reminder || 30
+      };
+      
+      console.log('Enviando para API:', JSON.stringify(visitData));
+      const response = await api.post('/visits', visitData);
+      console.log('Resposta da API:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Erro ao criar visita:', error.message);
+      console.error('Detalhes:', error.response?.data);
+      throw error;
+    }
+  },
+
+  update: async (id: number, visit: any) => {
+    try {
+      // Ajustamos os dados aqui para garantir o formato correto
+      // que o servidor espera
+      const visitData = {
+        ...(visit.customer_id ? { customer_id: Number(visit.customer_id) } : {}),
+        ...(visit.date ? { date: visit.date } : {}),
+        ...(visit.time ? { time: visit.time } : {}),
+        ...(visit.location ? { location: visit.location } : { location: 'Empresa' }),
+        ...(visit.type ? { type: visit.type } : { type: 'Visita' }),
+        ...(visit.notes !== undefined ? { notes: visit.notes } : {}),
+        ...(visit.reminder ? { reminder: Number(visit.reminder) } : { reminder: 30 }),
+        ...(visit.status ? { status: visit.status } : {})
+      };
+      
+      console.log(`Atualizando visita ${id}:`, JSON.stringify(visitData));
+      const response = await api.put(`/visits/${id}`, visitData);
+      console.log('Resposta da API:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Erro ao atualizar visita ${id}:`, error.message);
+      console.error('Detalhes:', error.response?.data);
+      throw error;
+    }
+  },
+
+  updateStatus: async (id: number, status: string) => {
+    try {
+      console.log(`Atualizando status da visita ${id} para ${status}`);
+      const response = await api.patch(`/visits/${id}/status`, { status });
+      return response.data;
+    } catch (error: any) {
+      console.error(`Erro ao atualizar status da visita ${id}:`, error.message);
+      throw error;
+    }
+  },
+
+  delete: async (id: number) => {
+    try {
+      console.log(`Excluindo visita ${id}`);
+      await api.delete(`/visits/${id}`);
+      return true;
+    } catch (error: any) {
+      console.error(`Erro ao excluir visita ${id}:`, error.message);
+      throw error;
+    }
+  }
 };
 
 // Notificações

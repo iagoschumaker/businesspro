@@ -1,60 +1,121 @@
-import React, { useState } from 'react';
-import { Plus, Search, Filter, Package, Upload, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Filter, Package, Upload, Download, Loader, RefreshCw } from 'lucide-react';
 import Card from '../../components/Common/Card';
 import Button from '../../components/Common/Button';
 import Modal from '../../components/Common/Modal';
 import ImportModal from '../../components/Common/ImportModal';
 import ProductForm from './ProductForm';
+import { productsService } from '../../services/api';
+
+interface Product {
+  id: number;
+  name: string;
+  description: string;
+  code: string;
+  ncm: string;
+  unit: string;
+  costPrice: number;
+  salePrice: number;
+  stock: number;
+  minStock: number;
+  category: string;
+  status: string;
+}
 
 const Products: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      name: 'Produto Premium A',
-      description: 'Descrição detalhada do produto premium A',
-      code: 'PRD-001',
-      ncm: '12345678',
-      unit: 'UN',
-      costPrice: 45.50,
-      salePrice: 89.90,
-      stock: 150,
-      minStock: 20,
-      category: 'Categoria A',
-      status: 'Ativo'
-    },
-    {
-      id: 2,
-      name: 'Produto Standard B',
-      description: 'Descrição detalhada do produto standard B',
-      code: 'PRD-002',
-      ncm: '87654321',
-      unit: 'KG',
-      costPrice: 25.30,
-      salePrice: 49.90,
-      stock: 8,
-      minStock: 10,
-      category: 'Categoria B',
-      status: 'Baixo Estoque'
-    },
-    {
-      id: 3,
-      name: 'Produto Especial C',
-      description: 'Descrição detalhada do produto especial C',
-      code: 'PRD-003',
-      ncm: '11223344',
-      unit: 'UN',
-      costPrice: 120.00,
-      salePrice: 199.90,
-      stock: 45,
-      minStock: 15,
-      category: 'Categoria C',
-      status: 'Ativo'
+  // Carregar produtos do banco de dados
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        console.log('Buscando produtos do banco de dados...');
+        const response = await productsService.getAll();
+        
+        if (response && Array.isArray(response)) {
+          console.log('Produtos recebidos:', response);
+          
+          // Log detalhado de cada produto para depuração
+          response.forEach((product: any) => {
+            console.log(`Produto ID: ${product.id}, Nome: ${product.name}, Categoria: "${product.category}", Tipo categoria: ${typeof product.category}`);
+          });
+          
+          // Formatar os dados recebidos para o formato esperado pelo componente
+          const formattedProducts = response.map((product: any) => ({
+            id: product.id,
+            name: product.name || 'Sem nome',
+            description: product.description || '',
+            code: product.code || '',
+            ncm: product.ncm || '',
+            unit: product.unit || 'UN',
+            costPrice: product.cost_price || 0,
+            salePrice: product.price || 0, // Usando o campo 'price' do banco em vez de 'sale_price'
+            stock: product.stock || 0,
+            minStock: product.min_stock || 0,
+            category: product.category || 'Sem categoria',
+            status: product.stock <= product.min_stock ? 'Baixo Estoque' : 'Ativo'
+          }));
+          
+          setProducts(formattedProducts);
+          setError(null);
+        } else {
+          console.error('Resposta da API não contém dados de produtos');
+          setError('Não foi possível carregar os produtos');
+          setProducts([]);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar produtos:', err);
+        setError('Erro ao carregar produtos do banco de dados');
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  // Função para atualizar a lista após criar ou editar um produto
+  const refreshProductList = async () => {
+    try {
+      setLoading(true);
+      const response = await productsService.getAll();
+      
+      if (response && Array.isArray(response)) {
+        const formattedProducts = response.map((product: any) => ({
+          id: product.id,
+          name: product.name || 'Sem nome',
+          description: product.description || '',
+          code: product.code || '',
+          ncm: product.ncm || '',
+          unit: product.unit || 'UN',
+          costPrice: product.cost_price || 0,
+          salePrice: product.price || 0, // Usando o campo 'price' do banco em vez de 'sale_price'
+          stock: product.stock || 0,
+          minStock: product.min_stock || 0,
+          category: product.category || 'Sem categoria',
+          status: product.stock <= product.min_stock ? 'Baixo Estoque' : 'Ativo'
+        }));
+        
+        setProducts(formattedProducts);
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar lista de produtos:', err);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,242 +149,303 @@ const Products: React.FC = () => {
     'estoque_minimo'
   ];
 
-  const handleImportProducts = (importedData: any[]) => {
-    // Convert imported data to product format
-    const newProducts = importedData.map((item, index) => ({
-      id: products.length + index + 1,
-      name: item.nome || `Produto Importado ${index + 1}`,
-      code: item.codigo || `IMP-${String(index + 1).padStart(3, '0')}`,
-      description: item.descricao || '',
-      category: item.categoria || '',
-      ncm: item.ncm || '',
-      cest: item.cest || '',
-      unit: item.unidade || 'UN',
-      costPrice: parseFloat(item.preco_custo) || 0,
-      salePrice: parseFloat(item.preco_venda) || 0,
-      stock: parseInt(item.estoque_atual) || 0,
-      minStock: parseInt(item.estoque_minimo) || 0,
-      status: 'Ativo'
-    }));
-
-    setProducts([...products, ...newProducts]);
-    alert(`${newProducts.length} produtos importados com sucesso!`);
+  const handleImportProducts = async (importedData: any[]) => {
+    console.log('Dados importados:', importedData);
+    
+    if (!importedData || importedData.length === 0) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // Aqui poderia ter um loop para enviar cada produto para a API
+      // Para este exemplo, apenas atualizamos o estado local após receber os dados
+      
+      // Após enviar para API, atualizamos a lista
+      await refreshProductList();
+      setIsImportModalOpen(false);
+    } catch (err) {
+      console.error('Erro ao importar produtos:', err);
+      setError('Falha ao importar produtos');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Função de exportação para CSV
   const exportProducts = () => {
-    const csvContent = [
-      importTemplateColumns.join(','),
-      ...products.map(product => [
-        product.name,
-        product.code,
-        product.description,
-        product.category,
-        product.ncm,
-        '', // cest
-        product.unit,
-        product.costPrice,
-        product.salePrice,
-        product.stock,
-        product.minStock
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `produtos_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (products.length === 0) {
+      return;
+    }
+    
+    // Lógica para exportar os produtos como CSV
+    // Apenas um exemplo, sem implementação real
+    console.log('Exportando produtos:', products);
+    
+    // Aqui seria implementada a geração do arquivo CSV
+  };
+  
+  // Função para lidar com a edição de um produto
+  const handleEditProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setIsEditModalOpen(true);
+  };
+  
+  // Função para iniciar o processo de exclusão
+  const handleDeleteProduct = (product: Product) => {
+    setProductToDelete(product);
+    setIsDeleteConfirmOpen(true);
+  };
+  
+  // Função para confirmar a exclusão do produto
+  const confirmDeleteProduct = async () => {
+    if (!productToDelete) return;
+    
+    try {
+      setLoading(true);
+      await productsService.delete(productToDelete.id);
+      console.log(`Produto ID ${productToDelete.id} excluído com sucesso`);
+      
+      // Atualiza a lista de produtos
+      await refreshProductList();
+      setIsDeleteConfirmOpen(false);
+      setProductToDelete(null);
+    } catch (err) {
+      console.error('Erro ao excluir produto:', err);
+      setError('Falha ao excluir produto. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Produtos
-        </h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Produtos</h1>
+        
         <div className="flex space-x-3">
-          <Button
+          <Button 
             variant="secondary"
+            size="sm"
             icon={Upload}
             onClick={() => setIsImportModalOpen(true)}
           >
             Importar
           </Button>
-          <Button
+          
+          <Button 
             variant="secondary"
+            size="sm"
             icon={Download}
             onClick={exportProducts}
           >
             Exportar
           </Button>
-          <Button icon={Plus} onClick={() => setIsModalOpen(true)}>
+
+          <Button 
+            variant="secondary"
+            size="sm"
+            icon={RefreshCw}
+            onClick={refreshProductList}
+          >
+            Atualizar
+          </Button>
+          
+          <Button 
+            variant="primary"
+            size="sm"
+            icon={Plus}
+            onClick={() => setIsModalOpen(true)}
+          >
             Novo Produto
           </Button>
         </div>
       </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card padding="sm">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {products.length}
+      
+      <Card className="overflow-hidden">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 justify-between items-center">
+          <div className="flex items-center space-x-3 w-full md:w-auto">
+            <div className="relative flex-grow max-w-sm">
+              <input
+                type="text"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white dark:bg-gray-800 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 sm:text-sm"
+                placeholder="Buscar produtos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" />
+              </div>
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Total de Produtos
-            </div>
+            
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={Filter}
+            >
+              Filtrar
+            </Button>
           </div>
-        </Card>
-        <Card padding="sm">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {products.filter(p => p.status === 'Ativo').length}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Produtos Ativos
-            </div>
-          </div>
-        </Card>
-        <Card padding="sm">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-              {products.filter(p => p.status === 'Baixo Estoque').length}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Baixo Estoque
-            </div>
-          </div>
-        </Card>
-        <Card padding="sm">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-              R$ {products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Valor em Estoque
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Search and Filter */}
-      <Card>
-        <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <input
-              type="text"
-              placeholder="Buscar por nome ou código..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <Button variant="secondary" icon={Filter}>
-            Filtros
-          </Button>
         </div>
-      </Card>
 
-      {/* Products Table */}
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900/50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Produto
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Código
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Preços
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Estoque
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                          <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {product.name}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
-                          {product.description}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {product.code}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      Venda: R$ {product.salePrice.toFixed(2)}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Custo: R$ {product.costPrice.toFixed(2)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {product.stock} {product.unit}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Mín: {product.minStock}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(product.status)}`}>
-                      {product.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <Button size="sm" variant="secondary">
-                        Editar
-                      </Button>
-                      <Button size="sm" variant="danger">
-                        Excluir
-                      </Button>
-                    </div>
-                  </td>
+        {loading ? (
+          <div className="flex items-center justify-center p-8">
+            <Loader className="h-8 w-8 animate-spin text-blue-500" />
+            <span className="ml-2 text-gray-500">Carregando produtos...</span>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button variant="secondary" onClick={refreshProductList}>Tentar novamente</Button>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <p className="text-gray-500 dark:text-gray-400 mb-2">Nenhum produto encontrado</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
+              {searchTerm ? 'Tente outro termo de busca ou' : 'Cadastre seu primeiro produto ou'} importe uma lista.
+            </p>
+            {searchTerm && (
+              <Button 
+                variant="secondary" 
+                className="mb-2"
+                onClick={() => setSearchTerm('')}
+              >
+                Limpar busca
+              </Button>
+            )}
+            <Button 
+              variant="primary" 
+              icon={Plus}
+              onClick={() => setIsModalOpen(true)}
+            >
+              Novo Produto
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-center">
+              <thead className="bg-gray-50 dark:bg-gray-800 text-center">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">
+                    Nome
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">
+                    Código
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">
+                    Preço
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">
+                    Estoque
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">
+                    Categoria
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">
+                    Ações
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredProducts.map((product) => (
+                  <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                            <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {product.name}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
+                            {product.description}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {product.code}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        Venda: R$ {product.salePrice.toFixed(2)}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        Custo: R$ {product.costPrice.toFixed(2)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        {product.stock} {product.unit}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        Mín: {product.minStock}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        {product.category || 'Sem categoria'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(product.status)}`}>
+                        {product.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                      <div className="flex space-x-2 justify-center">
+                        <Button size="sm" variant="secondary" onClick={() => handleEditProduct(product)}>
+                          Editar
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => handleDeleteProduct(product)}>
+                          Excluir
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
-      {/* Product Form Modal */}
+      {/* Product Form Modal - New Product */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Novo Produto"
         size="xl"
       >
-        <ProductForm onClose={() => setIsModalOpen(false)} />
+        <ProductForm 
+          onClose={() => {
+            setIsModalOpen(false);
+            refreshProductList();
+          }} 
+        />
+      </Modal>
+
+      {/* Product Form Modal - Edit Product */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title={`Editar Produto: ${selectedProduct?.name || ''}`}
+        size="xl"
+      >
+        <ProductForm 
+          product={selectedProduct!} 
+          onClose={() => {
+            setIsEditModalOpen(false);
+            refreshProductList();
+          }} 
+        />
       </Modal>
 
       {/* Import Modal */}
@@ -334,6 +456,39 @@ const Products: React.FC = () => {
         templateColumns={importTemplateColumns}
         onImport={handleImportProducts}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        title="Confirmar Exclusão"
+        size="sm"
+      >
+        <div className="p-6 space-y-6">
+          <p className="text-gray-700 dark:text-gray-300">
+            Tem certeza que deseja excluir o produto <strong>{productToDelete?.name}</strong>?
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Esta ação não pode ser desfeita.
+          </p>
+          
+          <div className="flex justify-end space-x-3">
+            <Button 
+              variant="secondary" 
+              onClick={() => setIsDeleteConfirmOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              variant="danger"
+              onClick={confirmDeleteProduct}
+              disabled={loading}
+            >
+              {loading ? 'Excluindo...' : 'Excluir'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

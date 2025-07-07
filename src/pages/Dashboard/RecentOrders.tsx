@@ -1,5 +1,6 @@
 import React from 'react';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, AlertTriangle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface Order {
   id: number;
@@ -15,43 +16,6 @@ interface RecentOrdersProps {
 }
 
 const RecentOrders: React.FC<RecentOrdersProps> = ({ orders }) => {
-  // Se não há dados, mostrar dados de exemplo
-  const defaultOrders = [
-    {
-      id: 1,
-      order_number: '#12345',
-      customer_name: 'João Silva',
-      total: 1250.00,
-      status: 'Confirmado',
-      created_at: '2024-01-15'
-    },
-    {
-      id: 2,
-      order_number: '#12346',
-      customer_name: 'Maria Santos',
-      total: 890.00,
-      status: 'Pendente',
-      created_at: '2024-01-15'
-    },
-    {
-      id: 3,
-      order_number: '#12347',
-      customer_name: 'Carlos Oliveira',
-      total: 2100.00,
-      status: 'Enviado',
-      created_at: '2024-01-14'
-    },
-    {
-      id: 4,
-      order_number: '#12348',
-      customer_name: 'Ana Costa',
-      total: 750.00,
-      status: 'Confirmado',
-      created_at: '2024-01-14'
-    }
-  ];
-
-  const displayOrders = orders.length > 0 ? orders : defaultOrders;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -89,7 +53,18 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({ orders }) => {
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-          {displayOrders.map((order) => (
+          {orders.length === 0 ? (
+          <tr>
+            <td colSpan={5} className="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
+              <div className="flex flex-col items-center justify-center">
+                <AlertTriangle className="h-8 w-8 text-yellow-500 mb-2" />
+                <p>Nenhum pedido encontrado</p>
+                <p className="text-sm mt-1">Os pedidos recentes aparecerão aqui.</p>
+              </div>
+            </td>
+          </tr>
+        ) : (
+          orders.map((order) => (
             <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                 {order.order_number}
@@ -111,9 +86,18 @@ const RecentOrders: React.FC<RecentOrdersProps> = ({ orders }) => {
                 </button>
               </td>
             </tr>
-          ))}
+          )))}
         </tbody>
       </table>
+      {orders.length > 0 && (
+        <div className="flex justify-center mt-4">
+          <Link 
+            to="/orders" 
+            className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+            Ver todos os pedidos
+          </Link>
+        </div>
+      )}
     </div>
   );
 };

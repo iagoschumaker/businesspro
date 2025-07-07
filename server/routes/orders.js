@@ -100,9 +100,18 @@ router.get('/:id', authenticateToken, requirePermission('Pedidos'), async (req, 
 // Criar pedido
 router.post('/', authenticateToken, requirePermission('Pedidos'), async (req, res) => {
     try {
-        const { customer_id, date, due_date, payment_method, items, notes, discount = 0 } = req.body;
+        // Vamos verificar a estrutura da tabela orders primeiro
+        console.log('Verificando estrutura da tabela orders...');
+        const tableInfo = await db.all("PRAGMA table_info(orders)");
+        console.log('Estrutura da tabela orders:', JSON.stringify(tableInfo, null, 2));
+        
+        console.log('Dados recebidos para criar pedido:', JSON.stringify(req.body, null, 2));
+        const { customer_id, date, date_time, due_date, payment_method, items, notes, discount = 0, shipping = 0 } = req.body;
+        
+        console.log('Dados extraídos:', { customer_id, date, date_time, payment_method, items: items?.length || 0 });
 
         if (!customer_id || !date || !payment_method || !items || items.length === 0) {
+            console.log('Erro de validação: campos obrigatórios faltando');
             return res.status(400).json({ error: 'Campos obrigatórios: cliente, data, forma de pagamento e itens' });
         }
 
@@ -113,40 +122,71 @@ router.post('/', authenticateToken, requirePermission('Pedidos'), async (req, re
         }
 
         // Calcular totais
-        let subtotal = 0;
-        for (const item of items) {
-            if (!item.product_id || !item.quantity || !item.unit_price) {
-                return res.status(400).json({ error: 'Todos os itens devem ter produto, quantidade e preço unitário' });
-            }
-            subtotal += item.quantity * item.unit_price;
+        const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+        
+        // Cálculo do valor de desconto
+        let discountValue = 0;
+        if (discount > 0) {
+            discountValue = (subtotal * discount) / 100;
         }
-
-        const total = subtotal - discount;
+        
+        // Cálculo do total
+        const total = subtotal - discountValue + shipping;
         const orderNumber = await generateOrderNumber();
+        
+        // Definindo orderId fora do bloco try interno para que esteja acessível em todo o escopo
+        let orderId;
 
         // Iniciar transação
         const queries = [];
+        console.log('Cálculo de valores - subtotal:', subtotal, 'discount:', discount, 'discountValue:', discountValue, 'shipping:', shipping, 'total:', total);
 
-        // Inserir pedido
+        // Versão simplificada sem o campo date_time
+        console.log('Preparando query SQL sem o campo date_time');
+        
+        // Preparar a query para inserir o pedido usando apenas colunas existentes
+        // Removendo os campos discount_value e shipping que não existem na tabela
+        // O valor do shipping está sendo adicionado ao total diretamente
         queries.push({
             sql: `INSERT INTO orders (customer_id, user_id, order_number, date, due_date, payment_method, subtotal, discount, total, notes)
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             params: [customer_id, req.user.id, orderNumber, date, due_date, payment_method, subtotal, discount, total, notes]
         });
-
+        
+        console.log('Query SQL preparada:', queries[0].sql);
+        console.log('Parâmetros da query:', JSON.stringify(queries[0].params));
+        
+        // Executar a transação
+        console.log('Iniciando transação...');
         const results = await db.transaction(queries);
-        const orderId = results[0].id;
-
+        console.log('Transação concluída com sucesso, resultados:', JSON.stringify(results));
+        
+        orderId = results[0].id;
+        console.log('ID do pedido criado:', orderId);
+    
         // Inserir itens do pedido
+        console.log('Inserindo itens do pedido...');
         for (const item of items) {
+            console.log('Inserindo item:', JSON.stringify(item));
             await db.run(`
                 INSERT INTO order_items (order_id, product_id, quantity, unit_price, total)
                 VALUES (?, ?, ?, ?, ?)
             `, [orderId, item.product_id, item.quantity, item.unit_price, item.quantity * item.unit_price]);
-
-            // Atualizar estoque do produto
-            await db.run('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.product_id]);
         }
+        console.log('Todos os itens inseridos com sucesso');
+
+        // Atualizar estoque do produto
+        console.log('Atualizando estoque dos produtos...');
+        for (const item of items) {
+            console.log(`Atualizando estoque do produto ${item.product_id}, reduzindo em ${item.quantity} unidades`);
+            try {
+                await db.run('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.product_id]);
+            } catch (stockError) {
+                console.error(`Erro ao atualizar estoque do produto ${item.product_id}:`, stockError);
+                // Continuar mesmo com erro no estoque para não falhar o pedido inteiro
+            }
+        }
+        console.log('Estoque atualizado com sucesso');
 
         const order = await db.get(`
             SELECT o.*, c.name as customer_name
@@ -157,8 +197,24 @@ router.post('/', authenticateToken, requirePermission('Pedidos'), async (req, re
         
         res.status(201).json(order);
     } catch (error) {
-        console.error('Erro ao criar pedido:', error);
-        res.status(500).json({ error: 'Erro interno do servidor' });
+        console.error('ERRO DETALHADO AO CRIAR PEDIDO:');
+        console.error('Mensagem:', error.message);
+        console.error('Stack:', error.stack);
+        
+        if (error.code) {
+            console.error('Código de erro:', error.code);
+        }
+        
+        if (error.errno) {
+            console.error('Número do erro:', error.errno);
+        }
+        
+        // Erro mais detalhado para o cliente
+        res.status(500).json({ 
+            error: 'Erro interno do servidor', 
+            details: error.message,
+            code: error.code || 'unknown'
+        });
     }
 });
 

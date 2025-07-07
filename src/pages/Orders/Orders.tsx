@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, RefreshCw, Loader, Edit } from 'lucide-react';
+import { Plus, Search, Filter, RefreshCw, Loader, Edit, FileText, Eye, Trash } from 'lucide-react';
 import Card from '../../components/Common/Card';
 import Button from '../../components/Common/Button';
 import Modal from '../../components/Common/Modal';
 import OrderForm from './OrderForm';
 import { ordersService, customersService } from '../../services/api';
+import { generateOrderPDF, OrderPDFData } from '../../utils/pdfGenerator';
 
 interface Order {
   id: string;
   customer_id: number;
   customer_name?: string;
   date: string;
+  subtotal?: number;
+  discount?: number;
+  shipping?: number;
   total: number;
   status: string;
   items: number;
@@ -20,7 +24,34 @@ interface Order {
   items_count?: number;
 }
 
-const Orders: React.FC = () => {
+const Orders: React.FC<{}> = () => {
+  // Função para exclusão em massa de pedidos
+  const deleteAllOrders = async () => {
+    if (!orders.length) {
+      alert('Nenhum pedido para excluir.');
+      return;
+    }
+    if (!window.confirm('ATENÇÃO: Isso tentará excluir TODOS os pedidos do banco de dados. Deseja continuar?')) {
+      return;
+    }
+    setLoading(true);
+    let deleted = 0;
+    let failed = 0;
+    for (const order of orders) {
+      try {
+        // Excluir o pedido diretamente
+        await ordersService.delete(Number(order.id));
+        deleted++;
+      } catch (error) {
+        failed++;
+        console.error('Erro ao excluir pedido ID', order.id, error);
+      }
+    }
+    setLoading(false);
+    alert(`Total excluídos: ${deleted}\nFalharam: ${failed}`);
+    refreshOrderList();
+  };
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,6 +59,8 @@ const Orders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewOrderDetails, setViewOrderDetails] = useState<Order | null>(null);
 
   const refreshOrderList = async () => {
     try {
@@ -99,6 +132,8 @@ const Orders: React.FC = () => {
       (order.customer_name && order.customer_name.toLowerCase().includes(searchTermLower));
   });
 
+  const statusOptions = ['Pendente', 'Confirmado', 'Enviado', 'Entregue', 'Cancelado'];
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Confirmado':
@@ -109,8 +144,126 @@ const Orders: React.FC = () => {
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
       case 'Entregue':
         return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+      case 'Cancelado':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+    }
+  };
+  
+  // Função para atualizar o status de um pedido
+  const updateOrderStatus = async (id: string, newStatus: string) => {
+    try {
+      setLoading(true);
+      await ordersService.updateStatus(Number(id), newStatus);
+      // Atualiza o pedido na lista local sem precisar recarregar todos os pedidos
+      setOrders(orders.map(order => {
+        if (order.id === id) {
+          return { ...order, status: newStatus };
+        }
+        return order;
+      }));
+    } catch (err) {
+      console.error('Erro ao atualizar status do pedido:', err);
+      alert('Erro ao atualizar status. Por favor, tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Função para tentar forçar a exclusão de um pedido diretamente via API
+  const forceDeleteOrder = async (id: string) => {
+    if (window.confirm('ATENÇÃO: Você está tentando excluir um pedido.\n\nTem certeza que deseja continuar?')) {
+      try {
+        setLoading(true);
+        const orderId = Number(id);
+        
+        // Excluir pedido diretamente
+        await ordersService.delete(orderId);
+        alert('Pedido excluído com sucesso!');
+        refreshOrderList();
+      } catch (error) {
+        console.error('Erro ao excluir pedido:', error);
+        alert('Erro ao excluir pedido. Verifique o console para mais detalhes.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
+
+
+  // Função para gerar PDF de um pedido
+  const generatePDF = async (order: Order) => {
+    try {
+      // Obter dados completos do pedido se necessário
+      let orderDetails = order;
+      let customerDetails = null;
+      
+      if (!orderDetails.items_count) {
+        const response = await ordersService.getById(Number(order.id));
+        if (response) {
+          orderDetails = response;
+        }
+      }
+      
+      // Tentar buscar dados completos do cliente se tivermos o customer_id
+      if (orderDetails.customer_id) {
+        try {
+          const customerResponse = await customersService.getById(Number(orderDetails.customer_id));
+          if (customerResponse) {
+            customerDetails = customerResponse;
+          }
+        } catch (customerError) {
+          console.warn('Não foi possível obter detalhes do cliente:', customerError);
+        }
+      }
+      
+      // Como não temos uma função getItems no serviço, usamos um array vazio para os itens
+      let orderItems: Array<{id?: number; product_name?: string; product_id?: number; product_code?: string; quantity?: number; unit?: string; unit_price?: number; total?: number}> = [];
+      
+      // Formatar os dados para o PDF
+      const pdfData: OrderPDFData = {
+        id: orderDetails.id,
+        date: orderDetails.date,
+        dueDate: orderDetails.due_date,
+        paymentMethod: orderDetails.payment_method || 'Não especificado',
+        customer: {
+          id: orderDetails.customer_id,
+          name: orderDetails.customer_name || 'Cliente não identificado',
+          document: customerDetails?.document || customerDetails?.cpf || customerDetails?.cnpj || 'Documento não informado',
+          address: customerDetails?.address || 'Endereço não informado',
+          phone: customerDetails?.phone || 'Telefone não informado',
+          email: customerDetails?.email || 'E-mail não informado',
+        },
+        items: orderItems.length > 0 ? 
+          orderItems.map((item: any) => ({
+            codigo: item.product_code || '',
+            productName: item.product_name || `Produto ${item.product_id}`,
+            quantity: item.quantity || 1,
+            unitPrice: item.unit_price || 0,
+            total: item.total || 0,
+            unidade: item.unit || 'un'
+          })) : [
+            {
+              productName: `Pedido #${orderDetails.id}`,
+              quantity: 1,
+              unitPrice: orderDetails.total,
+              total: orderDetails.total
+            }
+          ],
+        // Incluindo subtotal, desconto e frete corretamente
+        subtotal: orderDetails.subtotal || orderDetails.total,
+        discount: orderDetails.discount || 0,
+        shipping: orderDetails.shipping || 0,
+        total: orderDetails.total,
+        notes: orderDetails.notes
+      };
+      
+      // Gerar e abrir o PDF
+      await generateOrderPDF(pdfData);
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      alert('Erro ao gerar o PDF do pedido.');
     }
   };
 
@@ -200,29 +353,29 @@ const Orders: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <div className="w-full">
+            <table className="w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[10%]">
                     Pedido
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[20%]">
                     Cliente
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[15%]">
                     Data
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[10%]">
                     Itens
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[12%]">
                     Total
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[13%]">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[20%]">
                     Ações
                   </th>
                 </tr>
@@ -230,40 +383,71 @@ const Orders: React.FC = () => {
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    <td className="px-2 py-3 whitespace-nowrap text-center">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {order.id}
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {order.payment_method}
+                    </td>
+                    <td className="px-2 py-3 whitespace-nowrap text-center">
+                      <div className="text-sm text-gray-900 dark:text-white truncate">
+                        {order.customer_name}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {order.customer_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-3 whitespace-nowrap text-center">
                       <div className="text-sm text-gray-900 dark:text-white">
                         {new Date(order.date).toLocaleDateString('pt-BR')}
                       </div>
                       {order.due_date && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
                           Venc: {new Date(order.due_date).toLocaleDateString('pt-BR')}
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {order.items} item(s)
+                    <td className="px-2 py-3 whitespace-nowrap text-center">
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        {order.items} item(s)
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      R$ {order.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <td className="px-2 py-3 whitespace-nowrap text-center">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        R$ {order.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                        {order.status}
-                      </span>
+                    <td className="px-2 py-3 whitespace-nowrap text-center">
+                      <div className="relative inline-block text-left">
+                        <select
+                          value={order.status}
+                          onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                          className={`appearance-none inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium border-none cursor-pointer text-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${getStatusColor(order.status)}`}
+                          style={{ textAlign: 'center', textAlignLast: 'center' }}
+                        >
+                          {statusOptions.map(status => (
+                            <option 
+                              key={status} 
+                              value={status}
+                              className={`bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center`}
+                              style={{ textAlign: 'center' }}
+                            >
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center space-x-2">
+                    <td className="px-2 py-3 whitespace-nowrap text-center">
+                      <div className="flex items-center justify-center space-x-2">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={Eye}
+                          onClick={() => {
+                            setViewOrderDetails(order);
+                            setIsViewModalOpen(true);
+                          }}
+                          className="px-1 py-0.5 text-xs"
+                        >
+                          Ver
+                        </Button>
                         <Button
                           variant="secondary"
                           size="sm"
@@ -272,9 +456,18 @@ const Orders: React.FC = () => {
                             setSelectedOrder(order);
                             setIsEditModalOpen(true);
                           }}
-                          className="p-1"
+                          className="px-1 py-0.5 text-xs"
                         >
                           Editar
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={Trash}
+                          onClick={() => forceDeleteOrder(order.id)}
+                          className="px-1 py-0.5 text-xs bg-red-600 hover:bg-red-700 text-white"
+                        >
+                          EXCLUIR
                         </Button>
                       </div>
                     </td>
@@ -316,6 +509,106 @@ const Orders: React.FC = () => {
           }} 
         />
       </Modal>
+      
+      {/* Order View Modal - Visualizar Detalhes do Pedido */}
+      <Modal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        title={`Detalhes do Pedido: ${viewOrderDetails?.id || ''}`}
+        size="lg"
+      >
+        {viewOrderDetails && (
+          <div className="space-y-6">
+            {/* Dados do cliente */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3 border-b pb-2">Dados do Cliente</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Nome:</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{viewOrderDetails.customer_name}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">ID do Cliente:</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{viewOrderDetails.customer_id}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Dados do pedido */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3 border-b pb-2">Informações do Pedido</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Data:</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{new Date(viewOrderDetails.date).toLocaleDateString('pt-BR')}</p>
+                </div>
+                {viewOrderDetails.due_date && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Data de Vencimento:</p>
+                    <p className="text-sm text-gray-900 dark:text-white">{new Date(viewOrderDetails.due_date).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Status:</p>
+                  <p className="text-sm">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(viewOrderDetails.status)}`}>
+                      {viewOrderDetails.status}
+                    </span>
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Forma de Pagamento:</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{viewOrderDetails.payment_method || 'Não especificado'}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Valores */}
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3 border-b pb-2">Valores</h3>
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Quantidade de Itens:</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{viewOrderDetails.items} item(s)</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total:</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">R$ {viewOrderDetails.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Observações */}
+            {viewOrderDetails.notes && (
+              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3 border-b pb-2">Observações</h3>
+                <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{viewOrderDetails.notes}</p>
+              </div>
+            )}
+            
+            {/* Botões de ação */}
+            <div className="flex justify-end space-x-3 mt-6">
+              <Button
+                variant="secondary"
+                onClick={() => setIsViewModalOpen(false)}
+              >
+                Fechar
+              </Button>
+              <Button
+                variant="primary"
+                icon={FileText}
+                onClick={() => {
+                  generatePDF(viewOrderDetails);
+                }}
+              >
+                Gerar PDF
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+
     </div>
   );
 };

@@ -18,10 +18,41 @@ const LoginForm: React.FC = () => {
     setLoading(true);
     setError('');
 
+    // Validação básica
+    if (!formData.email.trim()) {
+      setError('O e-mail é obrigatório');
+      setLoading(false);
+      return;
+    }
+    
+    if (!formData.password.trim()) {
+      setError('A senha é obrigatória');
+      setLoading(false);
+      return;
+    }
+
     try {
       await login(formData.email, formData.password);
+      // Redirecionamento já é feito pelo AuthContext/ProtectedRoute
     } catch (error: any) {
-      setError(error.response?.data?.error || 'Erro ao fazer login');
+      // Tratamento de erro mais detalhado
+      if (error.response) {
+        // Erro de resposta da API
+        const status = error.response.status;
+        if (status === 401) {
+          setError('E-mail ou senha inválidos');
+        } else if (status === 403) {
+          setError('Usuário sem permissão de acesso');
+        } else {
+          setError(error.response?.data?.error || `Erro ${status}: Falha ao fazer login`);
+        }
+      } else if (error.request) {
+        // Erro de rede - sem resposta do servidor
+        setError('Não foi possível conectar ao servidor. Verifique sua conexão.');
+      } else {
+        // Erro genérico
+        setError('Erro ao fazer login: ' + error.message);
+      }
     } finally {
       setLoading(false);
     }

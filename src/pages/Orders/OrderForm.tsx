@@ -32,14 +32,37 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
   // Estado para controlar mensagem de sucesso
   const [success, setSuccess] = useState(false);
   
+  // Função para obter a data local atual no formato correto (YYYY-MM-DD)
+  const getCurrentLocalDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Função para obter a data e hora local atual no formato completo
+  const getCurrentLocalDateTime = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  };
+
   const [formData, setFormData] = useState({
     customerId: '',
     customerName: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getCurrentLocalDate(),
+    dateTime: getCurrentLocalDateTime(),
     paymentMethod: 'Boleto',
     dueDate: '',
     installments: 1,
     installmentPlan: '30',
+    discount: 0,
+    shipping: 0,
     notes: ''
   });
   
@@ -57,6 +80,21 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
       total: 0
     }
   ]);
+  
+  // Cálculo do subtotal (soma dos totais dos itens)
+  const subtotal = items.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+  
+  // Garantir que o valor do desconto seja numérico
+  const discountPercentage = Number(formData.discount) || 0;
+  
+  // Cálculo do valor do desconto baseado na porcentagem
+  const discountAmount = (subtotal * discountPercentage) / 100;
+  
+  // Garantir que o valor do frete seja numérico
+  const shippingValue = Number(formData.shipping) || 0;
+  
+  // Cálculo do total do pedido, com desconto aplicado apenas ao subtotal
+  const totalOrder = Number(subtotal) - Number(discountAmount) + Number(shippingValue);
 
   // Estado para armazenar clientes e produtos reais do banco de dados
   const [customers, setCustomers] = useState<Array<{id: string, name: string, document: string}>>([]);
@@ -66,19 +104,70 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
   useEffect(() => {
     if (order) {
       console.log('Editando pedido existente:', order);
+      
+      // Inicializar com valores básicos do pedido (serão substituídos se houver detalhes)
       setFormData({
         customerId: order.customer_id.toString(),
         customerName: order.customer_name || '',
-        date: order.date,
+        date: order.date || getCurrentLocalDate(),
+        dateTime: getCurrentLocalDateTime(), // Sempre usar a data/hora atual para edição
         paymentMethod: order.payment_method || 'Boleto',
         dueDate: order.due_date || '',
-        installments: 1, // Default, pode ser ajustado se necessário
+        installments: 1, // Valor padrão
         installmentPlan: '30',
+        discount: 0, // Valor padrão para desconto
+        shipping: 0, // Valor padrão para frete
         notes: order.notes || ''
       });
-
-      // Carregar os itens do pedido será implementado após integração completa da API
-      // Por enquanto, mantemos pelo menos um item vazio para o formulário
+      
+      // Carregar os detalhes completos do pedido da API, incluindo itens e parcelas
+      if (order.id) {
+        // Converter string para número
+        const orderId = parseInt(order.id, 10);
+        
+        // Buscar detalhes completos do pedido
+        ordersService.getById(orderId)
+          .then((response: any) => {
+            console.log('Detalhes completos do pedido:', response);
+            
+            // Atualizar o formulário com todos os dados, incluindo parcelas
+            setFormData(prev => ({
+              ...prev,
+              // Usar os valores reais de parcelas do pedido ou manter os valores anteriores
+              // Garantir que installments seja um número válido
+              installments: response.installments ? parseInt(response.installments.toString(), 10) : prev.installments,
+              installmentPlan: response.installment_plan || prev.installmentPlan,
+            }));
+            
+            // Log para debug - verificar se as parcelas estão sendo carregadas
+            console.log('Parcelas carregadas:', response.installments);
+            
+            // Carregar os itens do pedido
+            if (response.items && Array.isArray(response.items) && response.items.length > 0) {
+              // Mapear os itens do pedido para o formato usado pelo formulário
+              const orderItems = response.items.map((item: {
+                product_id: number;
+                product_name?: string;
+                quantity: number;
+                unit_price: number;
+                total: number;
+              }) => ({
+                productId: item.product_id.toString(),
+                productName: item.product_name || '',
+                quantity: item.quantity,
+                unitPrice: item.unit_price,
+                total: item.total
+              }));
+              
+              console.log('Itens do pedido formatados:', orderItems);
+              setItems(orderItems);
+            }
+          })
+          .catch((error: Error) => {
+            console.error('Erro ao carregar detalhes do pedido:', error);
+            // Já inicializamos com valores padrão acima, então não precisamos fazer nada aqui
+          });
+      }
     }
   }, [order]);
 
@@ -165,44 +254,68 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
     fetchCustomersAndProducts();
   }, []);
 
-  // Handler para cálculo de datas das parcelas
+  // Estado para armazenar as datas calculadas das parcelas
   const calculateInstallmentDates = (data: typeof formData) => {
-    if (!data.dueDate || parseInt(data.installments.toString()) <= 1) {
+    // Se a forma de pagamento não for parcelada ou não houver parcelas, limpar as datas
+    if (parseInt(data.installments.toString()) <= 0) {
       setInstallmentDates([]);
       return;
     }
     
-    const numInstallments = parseInt(data.installments.toString());
-    const intervalDays = parseInt(data.installmentPlan);
-    
-    // Usa a data de vencimento informada como primeira parcela
-    const firstDueDate = new Date(data.dueDate);
-    const dates: string[] = [];
-    
-    // A primeira parcela é a data de vencimento informada
-    dates.push(data.dueDate);
-    
-    // Calcula as parcelas seguintes com base na primeira
-    for (let i = 1; i < numInstallments; i++) {
-      const nextDate = new Date(firstDueDate);
-      nextDate.setDate(firstDueDate.getDate() + (intervalDays * i));
-      dates.push(nextDate.toISOString().split('T')[0]);
+    // Usar a data de vencimento como base para a primeira parcela
+    if (!data.dueDate) {
+      setInstallmentDates([]);
+      return;
     }
     
+    const dates: string[] = [];
+    const firstDueDate = new Date(data.dueDate);
+    const installmentCount = parseInt(data.installments.toString());
+    const intervalDays = parseInt(data.installmentPlan);
+    
+    for (let i = 0; i < installmentCount; i++) {
+      const date = new Date(firstDueDate);
+      date.setDate(date.getDate() + i * intervalDays);
+      dates.push(date.toISOString().split('T')[0]);
+    }
+    
+    // Estas datas são apenas informativas e não criarão boletos
     setInstallmentDates(dates);
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    let formattedValue = value;
+    
+    // Tratamento especial para o campo dateTime para converter de formato ISO para o formato que estamos usando
+    if (name === 'dateTime' && value) {
+      // Se o valor contém 'T' (formato ISO), convertemos para o formato "YYYY-MM-DD HH:MM"
+      if (value.includes('T')) {
+        const [datePart, timePart] = value.split('T');
+        formattedValue = `${datePart} ${timePart.substring(0, 5)}`; // Pega apenas HH:MM
+      }
+    }
+    
     const newData = {
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: formattedValue
     };
     
     setFormData(newData);
     
+    // Se a data principal mudar, vamos atualizar a data/hora completa
+    if (name === 'date') {
+      // Preserva a parte da hora do dateTime atual
+      const currentTime = formData.dateTime.split(' ')[1] || '00:00';
+      setFormData({
+        ...newData,
+        dateTime: `${formattedValue} ${currentTime}`
+      });
+    }
+    
     // Recalcular datas das parcelas quando os campos relevantes mudarem
     // Usando a data de vencimento (dueDate) como data da primeira parcela
-    if (['dueDate', 'installments', 'installmentPlan', 'paymentMethod'].includes(e.target.name)) {
+    if (['dueDate', 'installments', 'installmentPlan', 'paymentMethod'].includes(name)) {
       calculateInstallmentDates(newData);
     }
   };
@@ -320,11 +433,9 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
   const removeItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index));
   };
-
-  const totalOrder = items.reduce((sum, item) => sum + item.total, 0);
   
   // Função para salvar ou atualizar o pedido
-  const handleSaveOrder = () => {
+  const handleSaveOrder = async () => {
     console.log('Salvando pedido...');
     
     // Validações básicas antes de enviar
@@ -333,33 +444,97 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
       return;
     }
     
-    if (items.length === 0 || items.some(item => !item.productId)) {
-      window.alert('Por favor, adicione pelo menos um produto ao pedido.');
+    // Verificar se temos itens válidos
+    const validItems = items.filter(item => item.productId && item.quantity > 0);
+    if (validItems.length === 0) {
+      window.alert('Por favor, adicione pelo menos um produto válido ao pedido.');
       return;
     }
     
     try {
-      const orderData = {
-        ...formData,
-        items: items.map(item => ({
-          productId: item.productId,
-          productName: item.productName,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.total
-        })),
-        total: totalOrder,
-        createdAt: new Date().toISOString()
+      // Preparar os dados para a API no formato correto
+      // Garantir que todos os campos numéricos sejam de fato números
+      const customerId = Number(formData.customerId);
+      if (isNaN(customerId)) {
+        throw new Error('ID do cliente inválido');
+      }
+      
+      // Criar objeto com os dados formatados corretamente
+      const apiOrderData = {
+        customer_id: customerId,
+        date: getCurrentLocalDate(), // Sempre usar a data atual
+        date_time: formData.dateTime || getCurrentLocalDateTime(), // Incluir data e hora
+        payment_method: formData.paymentMethod,
+        // Adicionar número de parcelas e plano de parcelamento
+        installments: parseInt(formData.installments.toString(), 10) || 1,
+        installment_plan: formData.installmentPlan || '30',
+        // Adicionar campos de desconto e frete
+        discount: Number(formData.discount) || 0,
+        shipping: Number(formData.shipping) || 0,
+        // Remover campos vazios para evitar erros na API
+        due_date: formData.dueDate || undefined,
+        notes: formData.notes || undefined,
+        // Garantir que todos os campos numéricos sejam números válidos
+        items: validItems.map(item => {
+          const productId = Number(item.productId);
+          const quantity = Number(item.quantity);
+          const unitPrice = Number(item.unitPrice);
+          
+          if (isNaN(productId) || isNaN(quantity) || isNaN(unitPrice)) {
+            throw new Error('Dados do produto inválidos');
+          }
+          
+          return {
+            product_id: productId,
+            quantity: quantity,
+            unit_price: unitPrice
+          };
+        })
       };
       
-      console.log('Dados do pedido:', orderData);
-      // Aqui seria feita a chamada à API para salvar o pedido
+      console.log('Enviando dados para API:', JSON.stringify(apiOrderData));
       
-      window.alert('Pedido criado com sucesso!');
-      onClose();
+      // Verificar se é criação ou atualização
+      if (order?.id) {
+        // Atualizar pedido existente
+        const orderId = parseInt(order.id, 10);
+        if (isNaN(orderId)) {
+          throw new Error('ID do pedido inválido');
+        }
+        
+        try {
+          const response = await ordersService.update(orderId, apiOrderData);
+          console.log('Pedido atualizado com sucesso:', response);
+          setSuccess(true);
+          setTimeout(() => {
+            onClose();
+          }, 1500);
+        } catch (error: any) {
+          console.error('Erro ao atualizar pedido:', error);
+          const errorMessage = error.response?.data?.message || 'Verifique os dados e tente novamente.';
+          window.alert(`Erro ao atualizar pedido: ${errorMessage}`);
+        }
+      } else {
+        try {
+          // Criar novo pedido
+          const response = await ordersService.create(apiOrderData);
+          console.log('Pedido criado com sucesso!', response);
+          setSuccess(true);
+          setTimeout(() => {
+            onClose();
+          }, 1500);
+        } catch (error: any) {
+          console.error('Erro ao criar pedido:', error);
+          if (error.response) {
+            console.error('Status:', error.response.status);
+            console.error('Detalhes do erro:', error.response.data);
+          }
+          window.alert('Erro ao criar pedido. Verifique os dados e tente novamente.');
+        }
+      }
     } catch (error) {
-      console.error('Erro ao criar pedido:', error);
-      window.alert('Erro ao criar pedido. Verifique o console para mais detalhes.');
+      console.error('Erro ao processar dados do pedido:', error);
+      window.alert(`Erro ao processar dados do pedido: ${(error as Error).message}`);
     }
   };
 
@@ -467,6 +642,21 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
           />
         </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Hora do Pedido *
+          </label>
+          <input
+            type="datetime-local"
+            name="dateTime"
+            required
+            value={formData.dateTime.replace(' ', 'T')}
+            onChange={handleFormChange}
+            onKeyDown={handleKeyDown}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+          />
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -484,6 +674,7 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
             <option value="PIX">PIX</option>
             <option value="Cartão">Cartão</option>
             <option value="Dinheiro">Dinheiro</option>
+            <option value="Transferência">Transferência</option>
           </select>
         </div>
 
@@ -501,41 +692,37 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
           />
         </div>
         
-        {formData.paymentMethod === 'Boleto' && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Parcelas
-              </label>
-              <input
-                type="number"
-                name="installments"
-                min="1"
-                value={formData.installments}
-                onChange={handleFormChange}
-                onKeyDown={handleKeyDown}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Intervalo (dias)
-              </label>
-              <select
-                name="installmentPlan"
-                value={formData.installmentPlan}
-                onChange={handleFormChange}
-                onKeyDown={handleKeyDown}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="30">30 dias</option>
-                <option value="15">15 dias</option>
-                <option value="7">7 dias</option>
-              </select>
-            </div>
-          </>
-        )}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Parcelas
+          </label>
+          <input
+            type="number"
+            name="installments"
+            min="1"
+            value={formData.installments}
+            onChange={handleFormChange}
+            onKeyDown={handleKeyDown}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Intervalo (dias)
+          </label>
+          <select
+            name="installmentPlan"
+            value={formData.installmentPlan}
+            onChange={handleFormChange}
+            onKeyDown={handleKeyDown}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+          >
+            <option value="30">30 dias</option>
+            <option value="15">15 dias</option>
+            <option value="7">7 dias</option>
+          </select>
+        </div>
         
         {installmentDates.length > 1 && (
           <div className="col-span-1 md:col-span-2 mt-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
@@ -698,9 +885,79 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
           ))}
         </div>
 
-        {/* Order Total */}
-        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        {/* Discount, Shipping and Order Total */}
+        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg space-y-4">
+          {/* Subtotal */}
           <div className="flex justify-between items-center">
+            <span className="text-md font-medium text-gray-900 dark:text-white">
+              Subtotal:
+            </span>
+            <span className="text-lg font-medium text-gray-900 dark:text-white">
+              R$ {subtotal.toFixed(2)}
+            </span>
+          </div>
+          
+          {/* Discount Field */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Desconto (%)
+              </label>
+              <input
+                type="number"
+                name="discount"
+                step="0.01"
+                min="0"
+                max="100"
+                value={formData.discount}
+                onChange={handleFormChange}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            
+            {/* Shipping Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Frete (R$)
+              </label>
+              <input
+                type="number"
+                name="shipping"
+                step="0.01"
+                min="0"
+                value={formData.shipping}
+                onChange={handleFormChange}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+          </div>
+          
+          {/* Discount Amount Display */}
+          {discountPercentage > 0 && (
+            <div className="flex justify-between items-center text-red-600 dark:text-red-400">
+              <span className="text-md font-medium">
+                Desconto ({discountPercentage}%):
+              </span>
+              <span className="text-lg font-medium">
+                -R$ {discountAmount.toFixed(2)}
+              </span>
+            </div>
+          )}
+          
+          {/* Shipping Amount Display */}
+          {formData.shipping > 0 && (
+            <div className="flex justify-between items-center text-gray-600 dark:text-gray-400">
+              <span className="text-md font-medium">
+                Frete:
+              </span>
+              <span className="text-lg font-medium">
+                +R$ {Number(formData.shipping).toFixed(2)}
+              </span>
+            </div>
+          )}
+          
+          {/* Total */}
+          <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
             <span className="text-lg font-medium text-gray-900 dark:text-white">
               Total do Pedido:
             </span>
@@ -731,168 +988,13 @@ const OrderForm: React.FC<OrderFormProps> = ({ onClose, order }) => {
           Cancelar
         </Button>
         
-        {/* Botão final com validações e lógica completa */}
-        <button 
-          type="button" 
-          onClick={() => {
-            console.log('Salvando pedido...');
-            
-            // Verificando qual cliente está sendo usado
-            console.log('IMPORTANTE - Dados do cliente selecionado:', {
-              id: formData.customerId,
-              name: formData.customerName,
-              id_tipo: typeof formData.customerId
-            });
-            
-            // Validações de cliente
-            if (!formData.customerId) {
-              alert('Erro: Cliente não selecionado');
-              console.log('Erro: Cliente não selecionado');
-              return;
-            }
-            
-            // Verificando os itens do pedido no estado
-            console.log('Itens do pedido:', JSON.stringify(items));
-            
-            // Validações de itens
-            if (items.length === 0) {
-              alert('Erro: O pedido precisa ter pelo menos um produto');
-              console.log('Erro: Pedido sem produtos');
-              return;
-            }
-            
-            // Verificando se tem itens sem produtoId
-            const invalidItems = items.filter(item => !item.productId);
-            if (invalidItems.length > 0) {
-              alert('Erro: Existem produtos não selecionados no pedido');
-              console.log('Produtos inválidos:', invalidItems);
-              return;
-            }
-            
-            try {
-              // Dados do pedido
-              const orderData = {
-                ...formData,
-                items: items.map(item => ({
-                  productId: item.productId,
-                  productName: item.productName,
-                  quantity: item.quantity,
-                  unitPrice: item.unitPrice,
-                  total: item.total
-                })),
-                total: totalOrder,
-                createdAt: new Date().toISOString(),
-                installmentDates: installmentDates
-              };
-              
-              // Log dos dados para debug
-              console.log('Dados do pedido:', orderData);
-              
-              // Enviando dados para a API usando o serviço correto
-              try {
-                console.log('Preparando dados para API...');
-                
-                // Validando se há itens no pedido
-                if (items.length === 0) {
-                  throw new Error('Pedido deve conter pelo menos um item');
-                }
-                
-                // Filtrar apenas itens válidos (com productId)
-                const validItems = items.filter(item => item.productId);
-                console.log('Itens válidos:', validItems);
-                
-                if (validItems.length === 0) {
-                  throw new Error('Pedido deve conter pelo menos um produto válido');
-                }
-                
-                // Convertendo o orderData para o formato EXATO esperado pela API
-                const apiOrderData = {
-                  customer_id: Number(formData.customerId),
-                  date: formData.date,
-                  payment_method: formData.paymentMethod,
-                  due_date: formData.dueDate || undefined,
-                  notes: formData.notes || undefined,
-                  // Campo importante: itens do pedido - verificando se temos itens válidos
-                  items: validItems.map(item => ({
-                    product_id: Number(item.productId),
-                    quantity: Number(item.quantity),
-                    unit_price: Number(item.unitPrice)
-                  }))
-                };
-                
-                console.log('Objeto completo para API:', JSON.stringify(apiOrderData));
-                
-                // Garantindo que os tipos estejam corretos conforme a API espera
-                const customerId = Number(apiOrderData.customer_id);
-                console.log('ID do cliente (original):', formData.customerId);
-                console.log('ID do cliente (convertido):', customerId);
-                
-                const finalOrderData = {
-                  // Convertendo para string e depois para número para garantir
-                  // que não há problemas de tipo ou formatacão
-                  customer_id: customerId,
-                  date: String(apiOrderData.date),
-                  payment_method: String(apiOrderData.payment_method),
-                  due_date: apiOrderData.due_date ? String(apiOrderData.due_date) : undefined,
-                  notes: apiOrderData.notes,
-                  items: apiOrderData.items.map(item => ({
-                    product_id: Number(item.product_id),
-                    quantity: Number(item.quantity),
-                    unit_price: Number(item.unit_price)
-                  }))
-                };
-                
-                console.log('Dados finais enviados para API:', JSON.stringify(finalOrderData));
-                
-                // Verificar se é criação ou atualização
-                const isUpdate = !!order?.id;
-                
-                if (isUpdate) {
-                  // Para pedidos existentes, só atualizamos o status
-                  const orderId = parseInt(order!.id, 10);
-                  
-                  ordersService.updateStatus(orderId, formData.paymentMethod)
-                    .then(() => {
-                      setSuccess(true);
-                      setTimeout(() => {
-                        onClose();
-                      }, 1500);
-                    })
-                    .catch(() => {
-                      alert('Erro ao atualizar status do pedido.');
-                    });
-                } else {
-                  // Criar novo pedido normalmente
-                  ordersService.create(finalOrderData)
-                    .then(response => {
-                      console.log('Pedido criado com sucesso!', response);
-                      // Define success como true para mostrar mensagem
-                      setSuccess(true);
-                      // Fecha o formulário após 1.5 segundos
-                      setTimeout(() => {
-                        onClose();
-                      }, 1500);
-                    })
-                    .catch(error => {
-                      console.error('Erro ao criar pedido:', error);
-                      if (error.response) {
-                        console.error('Status:', error.response.status);
-                        console.error('Detalhes do erro:', error.response.data);
-                      }
-                      alert('Erro ao criar pedido. Verifique os dados e tente novamente.');
-                    });
-                }
-              } catch (error) {
-                console.error('Erro ao processar dados para API:', error);
-                alert('Erro ao processar dados do pedido: ' + (error as Error).message);
-              }
-            } catch (error) {
-              console.error('Erro ao processar pedido:', error);
-            }
-          }}
+        {/* Botão de salvar que usa a função handleSaveOrder */}
+        <button
+          type="button"
+          onClick={handleSaveOrder}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          Criar Pedido
+          {order ? 'Salvar Pedido' : 'Criar Pedido'}
         </button>
       </div>
     </div>

@@ -77,6 +77,9 @@ router.post('/', authenticateToken, requirePermission('Produtos'), async (req, r
             cost_price, sale_price, stock, min_stock, category 
         } = req.body;
 
+        console.log('Recebendo request para criar produto:');
+        console.log('Campos:', { name, code, category, unit, cost_price, sale_price });
+
         if (!name || !code || !unit || cost_price === undefined || sale_price === undefined) {
             return res.status(400).json({ error: 'Campos obrigatórios: nome, código, unidade, preço de custo e preço de venda' });
         }
@@ -87,10 +90,14 @@ router.post('/', authenticateToken, requirePermission('Produtos'), async (req, r
             return res.status(400).json({ error: 'Já existe um produto com este código' });
         }
 
+        // Garantindo que a categoria não seja undefined ou null
+        const categoryToSave = category || 'Sem categoria';
+        console.log('Categoria a ser salva:', categoryToSave);
+        
         const result = await db.run(`
-            INSERT INTO products (name, description, code, ncm, cest, unit, cost_price, sale_price, stock, min_stock, category)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [name, description, code, ncm, cest, unit, cost_price, sale_price, stock || 0, min_stock || 0, category]);
+            INSERT INTO products (name, description, code, unit, cost_price, price, stock, min_stock, category)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [name, description, code, unit, cost_price, sale_price, stock || 0, min_stock || 0, categoryToSave]);
 
         const product = await db.get('SELECT * FROM products WHERE id = ?', [result.id]);
         
@@ -116,11 +123,11 @@ router.put('/:id', authenticateToken, requirePermission('Produtos'), async (req,
 
         await db.run(`
             UPDATE products 
-            SET name = ?, description = ?, code = ?, ncm = ?, cest = ?, unit = ?, 
-                cost_price = ?, sale_price = ?, stock = ?, min_stock = ?, category = ?, 
+            SET name = ?, description = ?, code = ?, unit = ?, 
+                cost_price = ?, price = ?, stock = ?, min_stock = ?, category = ?, 
                 status = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
-        `, [name, description, code, ncm, cest, unit, cost_price, sale_price, 
+        `, [name, description, code, unit, cost_price, sale_price, 
             stock, min_stock, category, status || product.status, req.params.id]);
 
         const updatedProduct = await db.get('SELECT * FROM products WHERE id = ?', [req.params.id]);

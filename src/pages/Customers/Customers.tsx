@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Plus, Search, Filter, UserPlus, Phone, Mail, MapPin, User, Calendar, DollarSign, Package } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Filter, UserPlus, Phone, Mail, MapPin, User, Calendar, DollarSign, Package, Trash2 } from 'lucide-react';
 import Card from '../../components/Common/Card';
 import Button from '../../components/Common/Button';
 import Modal from '../../components/Common/Modal';
 import CustomerForm from './CustomerForm';
 import OrderForm from '../Orders/OrderForm';
+import { customersService } from '../../services/api';
 
 // Define Customer interface
 interface Customer {
@@ -25,52 +26,134 @@ const Customers: React.FC = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const customers = [
-    {
-      id: 1,
-      name: 'João Silva',
-      email: 'joao@email.com',
-      phone: '(11) 99999-9999',
-      document: '123.456.789-00',
-      address: 'Rua das Flores, 123 - Centro, São Paulo',
-      orders: 15,
-      totalValue: 'R$ 25.890,00',
-      lastOrder: '2024-01-10',
-      status: 'Ativo'
-    },
-    {
-      id: 2,
-      name: 'Maria Santos',
-      email: 'maria@email.com',
-      phone: '(11) 88888-8888',
-      document: '987.654.321-00',
-      address: 'Av. Paulista, 456 - Bela Vista, São Paulo',
-      orders: 8,
-      totalValue: 'R$ 12.450,00',
-      lastOrder: '2024-01-08',
-      status: 'Ativo'
-    },
-    {
-      id: 3,
-      name: 'Carlos Oliveira',
-      email: 'carlos@empresa.com',
-      phone: '(11) 77777-7777',
-      document: '12.345.678/0001-90',
-      address: 'Rua Comercial, 789 - Vila Madalena, São Paulo',
-      orders: 23,
-      totalValue: 'R$ 45.200,00',
-      lastOrder: '2024-01-12',
-      status: 'Ativo'
+  // Carregar clientes do banco de dados
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        setLoading(true);
+        console.log('Buscando clientes do banco de dados...');
+        const response = await customersService.getAll();
+        console.log('Resposta completa da API:', response);
+        
+        // Verificar se temos dados em diferentes formatos possíveis
+        // Se a resposta já é um array, usamos ela diretamente
+        const customersData = Array.isArray(response) ? response : 
+                              response?.data?.data || response?.data || [];
+        
+        if (customersData && Array.isArray(customersData) && customersData.length > 0) {
+          console.log('Clientes recebidos:', customersData);
+          
+          // Formatar os dados recebidos para o formato esperado pelo componente
+          const formattedCustomers = customersData.map((customer: any) => ({
+            id: customer.id,
+            name: customer.name || 'Sem nome',
+            email: customer.email || '',
+            phone: customer.phone || '',
+            document: customer.document || '',
+            address: `${customer.address || ''}, ${customer.city || ''}, ${customer.state || ''}`,
+            orders: customer.orderCount || 0,
+            totalValue: customer.totalSpent ? `R$ ${customer.totalSpent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ 0,00',
+            lastOrder: customer.lastOrderDate || '-',
+            status: customer.status || 'Ativo'
+          }));
+          
+          setCustomers(formattedCustomers);
+          setError(null);
+        } else {
+          console.log('Sem dados de clientes na resposta ou array vazio');
+          setCustomers([]);
+          // Se estamos recebendo uma resposta vazia, pode não ser um erro, apenas não há dados ainda
+          setError(null)
+        }
+      } catch (err) {
+        console.error('Erro ao buscar clientes:', err);
+        setError('Erro ao carregar clientes do banco de dados');
+        setCustomers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCustomers();
+  }, []);
+
+  // Função para excluir cliente
+  const handleDeleteCustomer = async () => {
+    if (!selectedCustomer) return;
+    
+    try {
+      setLoading(true);
+      await customersService.delete(selectedCustomer.id);
+      
+      // Fechar modal e atualizar lista
+      setIsDeleteModalOpen(false);
+      refreshCustomerList();
+    } catch (err) {
+      console.error('Erro ao excluir cliente:', err);
+      setError('Erro ao excluir cliente. Por favor, tente novamente.');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Função para atualizar a lista após criar ou editar um cliente
+  const refreshCustomerList = async () => {
+    try {
+      setLoading(true);
+      const response = await customersService.getAll();
+      console.log('Resposta completa da API:', response);
+      
+      // Verificar se temos dados em diferentes formatos possíveis
+      // Se a resposta já é um array, usamos ela diretamente
+      const customersData = Array.isArray(response) ? response : 
+                            response?.data?.data || response?.data || [];
+      
+      if (customersData && Array.isArray(customersData) && customersData.length > 0) {
+        console.log('Clientes recebidos:', customersData);
+        
+        const formattedCustomers = customersData.map((customer: any) => ({
+          id: customer.id,
+          name: customer.name || 'Sem nome',
+          email: customer.email || '',
+          phone: customer.phone || '',
+          document: customer.document || '',
+          address: `${customer.address || ''}, ${customer.city || ''}, ${customer.state || ''}`,
+          orders: customer.orderCount || 0,
+          totalValue: customer.totalSpent ? `R$ ${customer.totalSpent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ 0,00',
+          lastOrder: customer.lastOrderDate || '-',
+          status: customer.status || 'Ativo'
+        }));
+        
+        setCustomers(formattedCustomers);
+        setError(null);
+      } else {
+        console.log('Sem dados de clientes na resposta ou array vazio');
+        setCustomers([]);
+        // Se estamos recebendo uma resposta vazia, pode não ser um erro, apenas não há dados ainda
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar lista de clientes:', err);
+      setError('Erro ao carregar clientes do banco de dados');
+      setCustomers([]);
+      // Removidos dados de fallback - apenas dados reais do banco devem ser usados
+      // Em caso de erro, mostra apenas a mensagem de erro e uma lista vazia
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.document.includes(searchTerm) ||
-    customer.phone.includes(searchTerm)
+    (customer.phone && customer.phone.includes(searchTerm))
   );
 
   return (
@@ -86,6 +169,19 @@ const Customers: React.FC = () => {
           Novo Cliente
         </Button>
       </div>
+      
+      {/* Mostrar mensagem de erro se houver algum problema */}
+      {error && (
+        <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800">
+          <span className="font-medium">Erro!</span> {error}
+          <button 
+            className="float-right text-red-700 hover:text-red-900 dark:text-red-800 dark:hover:text-red-900"
+            onClick={() => window.location.reload()}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
 
       {/* Search and Filter */}
       <Card>
@@ -106,103 +202,189 @@ const Customers: React.FC = () => {
         </div>
       </Card>
 
-      {/* Customers Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredCustomers.map((customer) => (
-          <Card key={customer.id} className="hover:shadow-lg transition-shadow duration-200">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                  <UserPlus className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+      {/* Estado de carregamento */}
+      {loading && (
+        <div className="flex items-center justify-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          <span className="ml-3 text-gray-700 dark:text-gray-300">Carregando clientes...</span>
+        </div>
+      )}
+
+      {/* Mensagem quando não há clientes */}
+      {!loading && filteredCustomers.length === 0 && !error && (
+        <div className="flex flex-col items-center justify-center p-8 text-center">
+          <div className="text-gray-400 mb-4">
+            <User size={48} />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            {searchTerm ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">
+            {searchTerm 
+              ? `Não encontramos nenhum cliente correspondente a "${searchTerm}".` 
+              : 'Você ainda não possui clientes cadastrados.'}
+          </p>
+          {searchTerm ? (
+            <Button onClick={() => setSearchTerm('')}>Limpar busca</Button>
+          ) : (
+            <Button icon={UserPlus} onClick={() => setIsModalOpen(true)}>Cadastrar primeiro cliente</Button>
+          )}
+        </div>
+      )}
+
+      {/* Customer List */}
+      {!loading && filteredCustomers.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredCustomers.map((customer) => (
+            <Card key={customer.id} className="hover:shadow-lg transition-shadow duration-200">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                    <UserPlus className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {customer.name}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {customer.document}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {customer.name}
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {customer.document}
+                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
+                  {customer.status}
+                </span>
+              </div>
+
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Phone className="h-4 w-4 mr-2" />
+                  {customer.phone}
+                </div>
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Mail className="h-4 w-4 mr-2" />
+                  {customer.email}
+                </div>
+                <div className="flex items-start text-sm text-gray-600 dark:text-gray-400">
+                  <MapPin className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                  <span className="line-clamp-2">{customer.address}</span>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500 dark:text-gray-400">Pedidos</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{customer.orders}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 dark:text-gray-400">Total</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{customer.totalValue}</p>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs">
+                    Último pedido: {customer.lastOrder}
                   </p>
                 </div>
               </div>
-              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
-                {customer.status}
-              </span>
-            </div>
 
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                <Phone className="h-4 w-4 mr-2" />
-                {customer.phone}
-              </div>
-              <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                <Mail className="h-4 w-4 mr-2" />
-                {customer.email}
-              </div>
-              <div className="flex items-start text-sm text-gray-600 dark:text-gray-400">
-                <MapPin className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-                <span className="line-clamp-2">{customer.address}</span>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400">Pedidos</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">{customer.orders}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400">Total</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">{customer.totalValue}</p>
-                </div>
+              <div className="mt-4 flex space-x-2">
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  className="flex-1"
+                  onClick={() => {
+                    setSelectedCustomer(customer);
+                    setIsProfileModalOpen(true);
+                  }}
+                >
+                  Ver Perfil
+                </Button>
+                <Button 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => {
+                    setSelectedCustomer(customer);
+                    setIsNewOrderModalOpen(true);
+                  }}
+                >
+                  Novo Pedido
+                </Button>
               </div>
               <div className="mt-2">
-                <p className="text-gray-500 dark:text-gray-400 text-xs">
-                  Último pedido: {customer.lastOrder}
-                </p>
+                <Button 
+                  size="sm" 
+                  variant="danger" 
+                  className="w-full flex items-center justify-center"
+                  onClick={() => {
+                    setSelectedCustomer(customer);
+                    setIsDeleteModalOpen(true);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Excluir Cliente
+                </Button>
               </div>
-            </div>
-
-            <div className="mt-4 flex space-x-2">
-              <Button 
-                size="sm" 
-                variant="secondary" 
-                className="flex-1"
-                onClick={() => {
-                  setSelectedCustomer(customer);
-                  setIsProfileModalOpen(true);
-                }}
-              >
-                Ver Perfil
-              </Button>
-              <Button 
-                size="sm" 
-                className="flex-1"
-                onClick={() => {
-                  setSelectedCustomer(customer);
-                  setIsNewOrderModalOpen(true);
-                }}
-              >
-                Novo Pedido
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Customer Form Modal - New Customer */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Novo Cliente"
+        title="Cadastrar novo cliente"
         size="lg"
       >
-        <CustomerForm onClose={() => setIsModalOpen(false)} />
+        <CustomerForm 
+          onClose={() => {
+            setIsModalOpen(false);
+            refreshCustomerList();
+          }} 
+        />
       </Modal>
-      
+
+      {/* Modal de confirmação de exclusão */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        title="Confirmar exclusão"
+        onClose={() => setIsDeleteModalOpen(false)}
+        size="sm"
+      >
+        <div className="p-4">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+            Tem certeza que deseja excluir o cliente {selectedCustomer?.name}?
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">
+            Esta ação não pode ser desfeita. Todos os dados associados a este cliente serão removidos permanentemente.
+          </p>
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="secondary"
+              onClick={() => setIsDeleteModalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleDeleteCustomer}
+              disabled={loading}
+            >
+              {loading ? 'Excluindo...' : 'Sim, excluir'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Customer Form Modal - Edit Customer */}
       <Modal
         isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          refreshCustomerList();
+        }}
         title={`Editar Cliente: ${selectedCustomer?.name || ''}`}
         size="lg"
       >
@@ -218,7 +400,10 @@ const Customers: React.FC = () => {
       {/* New Order Modal */}
       <Modal
         isOpen={isNewOrderModalOpen}
-        onClose={() => setIsNewOrderModalOpen(false)}
+        onClose={() => {
+          setIsNewOrderModalOpen(false);
+          refreshCustomerList();
+        }}
         title={`Novo Pedido para ${selectedCustomer?.name || 'Cliente'}`}
         size="lg"
       >
@@ -231,7 +416,10 @@ const Customers: React.FC = () => {
       {/* Customer Profile Modal */}
       <Modal
         isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
+        onClose={() => {
+          setIsProfileModalOpen(false);
+          refreshCustomerList();
+        }}
         title={selectedCustomer?.name || 'Perfil do Cliente'}
         size="lg"
       >

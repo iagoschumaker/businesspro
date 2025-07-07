@@ -26,26 +26,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const initAuth = async () => {
-      const savedToken = localStorage.getItem('token');
-      const savedUser = localStorage.getItem('user');
-
-      if (savedToken && savedUser) {
-        try {
-          // Verificar se o token ainda é válido
-          const response = await authService.verify();
-          setToken(savedToken);
-          setUser(response.user);
-        } catch (error) {
-          // Token inválido, limpar dados
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-        }
-      }
-      setLoading(false);
-    };
-
-    initAuth();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
+    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -64,10 +49,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    // Limpar dados de autenticação
     setToken(null);
     setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.clear(); // Limpa todo o localStorage, não apenas token e user
+    sessionStorage.clear(); // Limpa qualquer dado de sessão também
+    
+    // Implementação robusta para garantir o redirecionamento
+    try {
+      console.log('Executando logout...');
+      
+      // O redirecionamento principal agora será feito no componente Header
+      // para evitar problemas de redirecionamento em cadeia
+    } catch (error) {
+      console.error('Erro durante o logout:', error);
+      
+      // Em caso de erro, tenta o redirecionamento aqui também
+      window.location.href = '/login';
+    }
   };
 
   const isAuthenticated = !!token && !!user;
