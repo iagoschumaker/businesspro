@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Padronização global: exibir tudo em MAIÚSCULO nos formulários */
+@layer base {
+  /* Inputs e textareas (exceto senhas e login) */
+  input:not([type="password"]):not([type="email"]):not(.login-input),
+  textarea:not(.login-textarea) {
+    text-transform: uppercase;
+  }
+}
+
+/* Utilitários para sobrescrever a regra global quando necessário */
+.no-uppercase {
+  text-transform: none !important;
+}
+
+.lowercase-text {
+  text-transform: lowercase !important;
+}
+
+/* Escopo para desativar uppercase em uma árvore específica */
+.no-uppercase-scope input:not([type="password"]):not([type="email"]):not(.login-input),
+.no-uppercase-scope textarea:not(.login-textarea) {
+  text-transform: none !important;
+}
