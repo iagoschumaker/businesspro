@@ -1,29 +1,25 @@
-<<<<<<< HEAD
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
-=======
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/AuthContext';
->>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Layout from './components/Layout/Layout';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Customers from './pages/Customers/Customers';
-<<<<<<< HEAD
 import CustomerDetail from './pages/Customers/CustomerDetail';
 import Products from './pages/Products/Products';
 import Orders from './pages/Orders/Orders';
 import Schedule from './pages/Schedule/Schedule';
-
+import Billing from './pages/Billing/Billing';
+import Users from './pages/Users/Users';
 import Reports from './pages/Reports/Reports';
 import Financial from './pages/Financial/Financial';
 import CompanyProfile from './pages/Company/CompanyProfile';
 import Profile from './pages/Account/Profile';
+import LoginForm from './components/Auth/LoginForm';
+import { notificationService } from './services/notificationService';
 
 // Super Admin components
 import SuperAdminLayout from './pages/SuperAdmin/Layout';
@@ -32,17 +28,6 @@ import UsersManagement from './pages/SuperAdmin/UsersManagement';
 import PlansManagement from './pages/SuperAdmin/PlansManagement';
 import Analytics from './pages/SuperAdmin/Analytics';
 import Settings from './pages/SuperAdmin/Settings';
-
-function App() {
-=======
-import Products from './pages/Products/Products';
-import Orders from './pages/Orders/Orders';
-import Schedule from './pages/Schedule/Schedule';
-import Billing from './pages/Billing/Billing';
-import Users from './pages/Users/Users';
-import Reports from './pages/Reports/Reports';
-import LoginForm from './components/Auth/LoginForm';
-import { notificationService } from './services/notificationService';
 
 // Componente simples para a página de login
 const Login = () => <LoginForm />;
@@ -66,7 +51,6 @@ const AppRoutes: React.FC = () => {
   
   // Inicializa o serviço de notificações APENAS quando o usuário está autenticado
   useEffect(() => {
-    // Só sincroniza com API quando o usuário estiver autenticado
     if (isAuthenticated) {
       console.log('Usuário autenticado, inicializando serviço de notificações...');
       
@@ -96,7 +80,7 @@ const AppRoutes: React.FC = () => {
     return () => {
       notificationService.stopChecking();
     };
-  }, [isAuthenticated]); // Executa quando o status de autenticação muda
+  }, [isAuthenticated]);
   
   return (
     <Routes>
@@ -106,15 +90,28 @@ const AppRoutes: React.FC = () => {
       {/* Rota principal redireciona para login ou dashboard */}
       <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
       
+      {/* Super Admin Routes */}
+      <Route path="/super-admin" element={<SuperAdminLayout />}>
+        <Route index element={<SuperAdminDashboard />} />
+        <Route path="users" element={<UsersManagement />} />
+        <Route path="plans" element={<PlansManagement />} />
+        <Route path="analytics" element={<Analytics />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
+
       {/* Rotas protegidas */}
       <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
       <Route path="/customers" element={<ProtectedPage requiredPermission="Clientes"><Customers /></ProtectedPage>} />
+      <Route path="/customers/:id" element={<ProtectedPage requiredPermission="Clientes"><CustomerDetail /></ProtectedPage>} />
       <Route path="/products" element={<ProtectedPage requiredPermission="Produtos"><Products /></ProtectedPage>} />
       <Route path="/orders" element={<ProtectedPage requiredPermission="Pedidos"><Orders /></ProtectedPage>} />
       <Route path="/schedule" element={<ProtectedPage requiredPermission="Agenda"><Schedule /></ProtectedPage>} />
       <Route path="/billing" element={<ProtectedPage requiredPermission="Boletos"><Billing /></ProtectedPage>} />
       <Route path="/users" element={<ProtectedPage requiredPermission="Usuários"><Users /></ProtectedPage>} />
       <Route path="/reports" element={<ProtectedPage requiredPermission="Relatórios"><Reports /></ProtectedPage>} />
+      <Route path="/financial" element={<ProtectedPage requiredPermission="Financeiro"><Financial /></ProtectedPage>} />
+      <Route path="/company" element={<ProtectedPage><CompanyProfile /></ProtectedPage>} />
+      <Route path="/account/profile" element={<ProtectedPage><Profile /></ProtectedPage>} />
       
       {/* Redireciona qualquer outra rota para login */}
       <Route path="*" element={<Navigate to="/login" />} />
@@ -124,49 +121,12 @@ const AppRoutes: React.FC = () => {
 
 // Componente principal da aplicação
 function App() {
-  // Nota: A inicialização do serviço de notificações está no AppRoutes
-  // para ter acesso ao status de autenticação
->>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   return (
     <ThemeProvider>
       <AuthProvider>
         <Router>
-<<<<<<< HEAD
           <Toaster position="top-right" />
-          <Routes>
-            {/* Super Admin Routes */}
-            <Route path="/super-admin" element={<SuperAdminLayout />}>
-              <Route index element={<SuperAdminDashboard />} />
-              <Route path="users" element={<UsersManagement />} />
-              <Route path="plans" element={<PlansManagement />} />
-              <Route path="analytics" element={<Analytics />} />
-              <Route path="settings" element={<Settings />} />
-            </Route>
-
-            {/* Regular App Routes */}
-            <Route path="/*" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/customers" element={<Customers />} />
-                    <Route path="/customers/:id" element={<CustomerDetail />} />
-                    <Route path="/products" element={<Products />} />
-                    <Route path="/orders" element={<Orders />} />
-                    <Route path="/schedule" element={<Schedule />} />
-                    <Route path="/financial" element={<Financial />} />
-                    <Route path="/reports" element={<Reports />} />
-                    <Route path="/company" element={<CompanyProfile />} />
-                    <Route path="/account/profile" element={<Profile />} />
-                  </Routes>
-                </Layout>
-              </ProtectedRoute>
-            } />
-          </Routes>
-=======
           <AppRoutes />
->>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
         </Router>
       </AuthProvider>
     </ThemeProvider>
