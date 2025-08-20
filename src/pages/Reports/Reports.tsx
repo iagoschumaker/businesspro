@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 import React, { useMemo, useRef, useState } from 'react';
+=======
+import React, { useState } from 'react';
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 import { Download, FileText, BarChart3, PieChart, TrendingUp, Calendar } from 'lucide-react';
 import Card from '../../components/Common/Card';
 import Button from '../../components/Common/Button';
 import SalesReport from './SalesReport';
 import CustomersReport from './CustomersReport';
+<<<<<<< HEAD
 import ProductsReport from './ProductsReport';
 import FinancialReport from './FinancialReport';
 import html2canvas from 'html2canvas';
@@ -24,6 +29,14 @@ const Reports: React.FC = () => {
   const [dateRange, setDateRange] = useState({
     startDate: formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
     endDate: formatDate(new Date())
+=======
+
+const Reports: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('sales');
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0]
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   });
 
   const reportTypes = [
@@ -70,6 +83,7 @@ const Reports: React.FC = () => {
       format: 'PDF'
     },
     {
+<<<<<<< HEAD
       name: 'Relatório de Parcelas',
       description: 'Período e status selecionados',
       format: 'PDF'
@@ -592,6 +606,42 @@ const Reports: React.FC = () => {
 
       {/* Date Range Filter */}
       <Card padding="sm">
+=======
+      name: 'Boletos Vencidos',
+      description: 'Relatório de boletos em atraso',
+      format: 'Excel'
+    }
+  ];
+
+  const generateReport = (reportName: string, format: string) => {
+    console.log(`Generating ${reportName} in ${format} format`);
+    alert(`Relatório "${reportName}" sendo gerado em formato ${format}...`);
+  };
+
+  const exportCurrentReport = (format: string) => {
+    console.log(`Exporting current report in ${format} format`);
+    alert(`Exportando relatório atual em formato ${format}...`);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          Relatórios
+        </h1>
+        <div className="flex space-x-3">
+          <Button variant="secondary" icon={Download} onClick={() => exportCurrentReport('PDF')}>
+            Exportar PDF
+          </Button>
+          <Button variant="secondary" icon={Download} onClick={() => exportCurrentReport('Excel')}>
+            Exportar Excel
+          </Button>
+        </div>
+      </div>
+
+      {/* Date Range Filter */}
+      <Card>
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
         <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
           <div className="flex items-center space-x-2">
             <Calendar className="h-5 w-5 text-gray-500" />
@@ -651,6 +701,7 @@ const Reports: React.FC = () => {
         </div>
 
         {/* Report Content */}
+<<<<<<< HEAD
         <div ref={containerRef} className="min-h-[400px]">
           {activeTab === 'sales' && <SalesReport dateRange={dateRange} />}
           {activeTab === 'customers' && <CustomersReport dateRange={dateRange} />}
@@ -659,6 +710,32 @@ const Reports: React.FC = () => {
           )}
           {activeTab === 'financial' && (
             <FinancialReport startDate={dateRange.startDate} endDate={dateRange.endDate} />
+=======
+        <div className="min-h-[400px]">
+          {activeTab === 'sales' && <SalesReport dateRange={dateRange} />}
+          {activeTab === 'customers' && <CustomersReport dateRange={dateRange} />}
+          {activeTab === 'products' && (
+            <div className="text-center py-8">
+              <BarChart3 className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-4 text-sm font-medium text-gray-900 dark:text-white">
+                Relatório de Produtos
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Análise de performance de produtos em desenvolvimento.
+              </p>
+            </div>
+          )}
+          {activeTab === 'financial' && (
+            <div className="text-center py-8">
+              <FileText className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-4 text-sm font-medium text-gray-900 dark:text-white">
+                Relatório Financeiro
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Relatório de fluxo de caixa em desenvolvimento.
+              </p>
+            </div>
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
           )}
         </div>
       </Card>

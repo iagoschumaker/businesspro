@@ -1,27 +1,40 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+<<<<<<< HEAD
 import { useNavigate } from 'react-router-dom';
+=======
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 import { Building2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import Button from '../Common/Button';
 
 const LoginForm: React.FC = () => {
   const { login } = useAuth();
+<<<<<<< HEAD
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     tenantSubdomain: ''
+=======
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+<<<<<<< HEAD
   const [showSubdomain, setShowSubdomain] = useState(false);
+=======
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
+<<<<<<< HEAD
     try {
       // Sanitizar entradas para evitar espaços extras (comum no mobile)
       const email = formData.email.trim().toLowerCase();
@@ -35,6 +48,42 @@ const LoginForm: React.FC = () => {
       setError(msg);
       if (msg.includes('múltiplos tenants') || msg.toLowerCase().includes('subdomínio')) {
         setShowSubdomain(true);
+=======
+    // Validação básica
+    if (!formData.email.trim()) {
+      setError('O e-mail é obrigatório');
+      setLoading(false);
+      return;
+    }
+    
+    if (!formData.password.trim()) {
+      setError('A senha é obrigatória');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      await login(formData.email, formData.password);
+      // Redirecionamento já é feito pelo AuthContext/ProtectedRoute
+    } catch (error: any) {
+      // Tratamento de erro mais detalhado
+      if (error.response) {
+        // Erro de resposta da API
+        const status = error.response.status;
+        if (status === 401) {
+          setError('E-mail ou senha inválidos');
+        } else if (status === 403) {
+          setError('Usuário sem permissão de acesso');
+        } else {
+          setError(error.response?.data?.error || `Erro ${status}: Falha ao fazer login`);
+        }
+      } else if (error.request) {
+        // Erro de rede - sem resposta do servidor
+        setError('Não foi possível conectar ao servidor. Verifique sua conexão.');
+      } else {
+        // Erro genérico
+        setError('Erro ao fazer login: ' + error.message);
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
       }
     } finally {
       setLoading(false);
@@ -88,12 +137,17 @@ const LoginForm: React.FC = () => {
                   required
                   value={formData.email}
                   onChange={handleChange}
+<<<<<<< HEAD
                   className="login-input block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white placeholder-gray-400"
+=======
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white placeholder-gray-400"
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
                   placeholder="Digite seu e-mail"
                 />
               </div>
             </div>
 
+<<<<<<< HEAD
             {showSubdomain && (
               <div>
                 <label htmlFor="tenantSubdomain" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -117,6 +171,8 @@ const LoginForm: React.FC = () => {
               </div>
             )}
 
+=======
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Senha
@@ -132,8 +188,12 @@ const LoginForm: React.FC = () => {
                   required
                   value={formData.password}
                   onChange={handleChange}
+<<<<<<< HEAD
                   className="login-input no-uppercase block w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white placeholder-gray-400"
                   style={{ textTransform: 'none' }}
+=======
+                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white placeholder-gray-400"
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
                   placeholder="Digite sua senha"
                 />
                 <button
@@ -159,7 +219,20 @@ const LoginForm: React.FC = () => {
             </Button>
           </form>
 
+<<<<<<< HEAD
           {/* Seção de usuários de demonstração removida */}
+=======
+          <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="font-medium mb-2">Usuários de demonstração:</p>
+              <div className="space-y-1 text-xs">
+                <p><strong>Admin:</strong> admin@businesspro.com / admin123</p>
+                <p><strong>Vendedor:</strong> joao@businesspro.com / 123456</p>
+                <p><strong>Financeiro:</strong> maria@businesspro.com / 123456</p>
+              </div>
+            </div>
+          </div>
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
         </div>
       </div>
     </div>

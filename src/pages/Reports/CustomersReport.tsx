@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 import React, { useEffect, useMemo, useState } from 'react';
 import Card from '../../components/Common/Card';
+=======
+import React from 'react';
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 import { Users, TrendingUp, DollarSign, Calendar } from 'lucide-react';
 import {
   BarChart,
@@ -13,12 +17,17 @@ import {
   Pie,
   Cell,
   LineChart,
+<<<<<<< HEAD
   Line,
   Legend,
   LabelList
 } from 'recharts';
 import { dashboardService, ordersService, customersService } from '../../services/api';
 import { formatBRFlexible } from '../../utils/date';
+=======
+  Line
+} from 'recharts';
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 
 interface CustomersReportProps {
   dateRange: {
@@ -28,6 +37,7 @@ interface CustomersReportProps {
 }
 
 const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
+<<<<<<< HEAD
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [series, setSeries] = useState<Array<{ date: string; newCustomers: number }>>([]);
@@ -351,32 +361,84 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
       title: 'Total de Clientes (carregados)',
       value: String(customers?.length ?? 0),
       change: `+${totalNew} novos`,
+=======
+  const customerData = [
+    { month: 'Jan', newCustomers: 25, activeCustomers: 150 },
+    { month: 'Fev', newCustomers: 32, activeCustomers: 175 },
+    { month: 'Mar', newCustomers: 28, activeCustomers: 190 },
+    { month: 'Abr', newCustomers: 45, activeCustomers: 220 },
+    { month: 'Mai', newCustomers: 38, activeCustomers: 245 },
+    { month: 'Jun', newCustomers: 52, activeCustomers: 280 }
+  ];
+
+  const segmentData = [
+    { name: 'Pessoa Física', value: 65, color: '#3B82F6' },
+    { name: 'Pessoa Jurídica', value: 35, color: '#10B981' }
+  ];
+
+  const loyaltyData = [
+    { category: 'Novos (1-3 pedidos)', customers: 120, percentage: 43 },
+    { category: 'Regulares (4-10 pedidos)', customers: 85, percentage: 30 },
+    { category: 'VIP (11+ pedidos)', customers: 75, percentage: 27 }
+  ];
+
+  const retentionData = [
+    { month: 'Jan', retention: 85 },
+    { month: 'Fev', retention: 87 },
+    { month: 'Mar', retention: 82 },
+    { month: 'Abr', retention: 89 },
+    { month: 'Mai', retention: 91 },
+    { month: 'Jun', retention: 88 }
+  ];
+
+  const stats = [
+    {
+      title: 'Total de Clientes',
+      value: '1.234',
+      change: '+8.2%',
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
       icon: Users,
       color: 'text-blue-600'
     },
     {
       title: 'Clientes Ativos',
+<<<<<<< HEAD
       value: String(activeCustomers),
       change: '',
+=======
+      value: '856',
+      change: '+12.5%',
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
       icon: TrendingUp,
       color: 'text-green-600'
     },
     {
       title: 'Ticket Médio',
+<<<<<<< HEAD
       value: ticketMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
       change: '',
+=======
+      value: 'R$ 485',
+      change: '+5.8%',
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
       icon: DollarSign,
       color: 'text-purple-600'
     },
     {
       title: 'Retenção Mensal',
+<<<<<<< HEAD
       value: `${retencaoMensal}%`,
       change: '',
+=======
+      value: '88%',
+      change: '+2.1%',
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
       icon: Calendar,
       color: 'text-orange-600'
     }
   ];
 
+<<<<<<< HEAD
   // Theme detection for tick colors (simple, reads once)
   const [isDark, setIsDark] = useState<boolean>(false);
   useEffect(() => {
@@ -551,6 +613,22 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
         <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
       )}
 
+=======
+  const topCustomers = [
+    { name: 'João Silva', orders: 45, total: 'R$ 28.500', lastOrder: '2024-01-12' },
+    { name: 'Maria Santos', orders: 38, total: 'R$ 22.800', lastOrder: '2024-01-10' },
+    { name: 'Carlos Oliveira', orders: 32, total: 'R$ 19.200', lastOrder: '2024-01-08' },
+    { name: 'Ana Costa', orders: 28, total: 'R$ 16.800', lastOrder: '2024-01-06' }
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        Período: {new Date(dateRange.startDate).toLocaleDateString('pt-BR')} até{' '}
+        {new Date(dateRange.endDate).toLocaleDateString('pt-BR')}
+      </div>
+
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {stats.map((stat, index) => (
@@ -577,6 +655,7 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
 
       {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<<<<<<< HEAD
         {/* Customer Acquisition (novos por dia) */}
         <Card padding="sm">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -626,6 +705,37 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
 
         {/* Customer Segmentation */}
         <Card padding="sm">
+=======
+        {/* Customer Acquisition */}
+        <div className="p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Aquisição de Clientes
+          </h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={customerData}>
+                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                <XAxis 
+                  dataKey="month" 
+                  className="text-sm text-gray-600 dark:text-gray-400"
+                />
+                <YAxis className="text-sm text-gray-600 dark:text-gray-400" />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'var(--tooltip-bg)',
+                    border: '1px solid var(--tooltip-border)',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Bar dataKey="newCustomers" fill="#3B82F6" name="Novos Clientes" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Customer Segmentation */}
+        <div className="p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Segmentação de Clientes
           </h3>
@@ -648,13 +758,21 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
               </PieChart>
             </ResponsiveContainer>
           </div>
+<<<<<<< HEAD
         </Card>
+=======
+        </div>
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
       </div>
 
       {/* Charts Row 2 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Customer Retention */}
+<<<<<<< HEAD
         <Card padding="sm">
+=======
+        <div className="p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Taxa de Retenção
           </h3>
@@ -689,10 +807,17 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
               </LineChart>
             </ResponsiveContainer>
           </div>
+<<<<<<< HEAD
         </Card>
 
         {/* Customer Loyalty */}
         <Card padding="sm">
+=======
+        </div>
+
+        {/* Customer Loyalty */}
+        <div className="p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Lealdade dos Clientes
           </h3>
@@ -709,7 +834,11 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<<<<<<< HEAD
                     <div
+=======
+                    <div 
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${item.percentage}%` }}
                     />
@@ -718,12 +847,21 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
               </div>
             ))}
           </div>
+<<<<<<< HEAD
         </Card>
       </div>
 
       {/* Top Customers Table */}
       <Card padding="sm" className="overflow-hidden">
         <div className="mb-2">
+=======
+        </div>
+      </div>
+
+      {/* Top Customers Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Top Clientes por Volume
           </h3>
@@ -732,6 +870,7 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900/50">
               <tr>
+<<<<<<< HEAD
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Cliente
                 </th>
@@ -742,6 +881,18 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
                   Total Comprado
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+=======
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Cliente
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Pedidos
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Total Comprado
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
                   Último Pedido
                 </th>
               </tr>
@@ -749,6 +900,7 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {topCustomers.map((customer, index) => (
                 <tr key={index}>
+<<<<<<< HEAD
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white text-center">
                     {customer.name}
                   </td>
@@ -760,13 +912,30 @@ const CustomersReport: React.FC<CustomersReportProps> = ({ dateRange }) => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
                     {formatBRFlexible(customer.lastOrder)}
+=======
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                    {customer.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    {customer.orders}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    {customer.total}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {new Date(customer.lastOrder).toLocaleDateString('pt-BR')}
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+<<<<<<< HEAD
       </Card>
+=======
+      </div>
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
     </div>
   );
 };

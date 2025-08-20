@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 import React, { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+=======
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 import {
   LayoutDashboard,
   Users,
@@ -8,10 +13,17 @@ import {
   ShoppingCart,
   Calendar,
   CreditCard,
+<<<<<<< HEAD
   FileText,
   X,
   Building2,
   User
+=======
+  UserCheck,
+  FileText,
+  X,
+  Building2
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -20,13 +32,17 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+<<<<<<< HEAD
   const { user } = useAuth();
+=======
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Clientes', href: '/customers', icon: Users },
     { name: 'Produtos', href: '/products', icon: Package },
     { name: 'Pedidos', href: '/orders', icon: ShoppingCart },
     { name: 'Agenda', href: '/schedule', icon: Calendar },
+<<<<<<< HEAD
     { name: 'Financeiro', href: '/financial', icon: CreditCard },
     { name: 'Relatórios', href: '/reports', icon: FileText },
     { name: 'Empresa', href: '/company', icon: Building2 },
@@ -46,13 +62,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     };
   }, [isOpen]);
 
+=======
+    { name: 'Boletos', href: '/billing', icon: CreditCard },
+    { name: 'Usuários', href: '/users', icon: UserCheck },
+    { name: 'Relatórios', href: '/reports', icon: FileText },
+  ];
+
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   return (
     <>
       {/* Mobile overlay */}
       {isOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div
+<<<<<<< HEAD
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+=======
+            className="fixed inset-0 bg-gray-600 bg-opacity-75"
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
             onClick={onClose}
           />
         </div>
@@ -99,6 +126,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               </NavLink>
             ))}
           </div>
+<<<<<<< HEAD
 
           {user?.isSuperAdmin && (
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -118,6 +146,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               </NavLink>
             </div>
           )}
+=======
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
         </nav>
       </div>
     </>

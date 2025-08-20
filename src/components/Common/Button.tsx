@@ -8,7 +8,10 @@ interface ButtonProps {
   size?: 'sm' | 'md' | 'lg';
   icon?: LucideIcon;
   disabled?: boolean;
+<<<<<<< HEAD
   loading?: boolean;
+=======
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   className?: string;
   type?: 'button' | 'submit' | 'reset';
 }
@@ -20,7 +23,10 @@ const Button: React.FC<ButtonProps> = ({
   size = 'md',
   icon: Icon,
   disabled = false,
+<<<<<<< HEAD
   loading = false,
+=======
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   className = '',
   type = 'button'
 }) => {
@@ -43,6 +49,7 @@ const Button: React.FC<ButtonProps> = ({
     <button
       type={type}
       onClick={onClick}
+<<<<<<< HEAD
       disabled={disabled || loading}
       className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className} ${loading ? 'opacity-75 cursor-wait' : ''}`}
     >
@@ -60,6 +67,13 @@ const Button: React.FC<ButtonProps> = ({
           {children}
         </>
       )}
+=======
+      disabled={disabled}
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+    >
+      {Icon && <Icon className="mr-2 h-4 w-4" />}
+      {children}
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
     </button>
   );
 };

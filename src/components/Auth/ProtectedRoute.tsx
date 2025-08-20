@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import LoginForm from './LoginForm';
+<<<<<<< HEAD
 // import { useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
@@ -26,6 +27,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     }
   }, [accessDenied]);
 
+=======
+
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  requiredPermission?: string;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredPermission }) => {
+  const { isAuthenticated, user, loading } = useAuth();
+
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -41,6 +53,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <LoginForm />;
   }
 
+<<<<<<< HEAD
   if (accessDenied) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -50,6 +63,26 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         </div>
       </div>
     );
+=======
+  // Verificar permissão específica se necessário
+  if (requiredPermission && user) {
+    const hasPermission = user.role === 'Administrador' || user.permissions.includes(requiredPermission);
+    
+    if (!hasPermission) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              Acesso Negado
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Você não tem permissão para acessar esta página.
+            </p>
+          </div>
+        </div>
+      );
+    }
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   }
 
   return <>{children}</>;

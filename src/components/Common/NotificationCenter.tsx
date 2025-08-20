@@ -1,16 +1,28 @@
+<<<<<<< HEAD
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, X, AlertCircle, CheckCircle, Info, Clock, Loader2 } from 'lucide-react';
 import { notificationsService } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 
 interface UINotification {
+=======
+import React, { useState } from 'react';
+import { Bell, X, AlertCircle, CheckCircle, Info, Clock } from 'lucide-react';
+
+interface Notification {
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   id: string;
   type: 'success' | 'warning' | 'error' | 'info';
   title: string;
   message: string;
+<<<<<<< HEAD
   time: string; // humanized from createdAt
   read: boolean;
   createdAtTs?: number;
+=======
+  time: string;
+  read: boolean;
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 }
 
 interface NotificationCenterProps {
@@ -19,6 +31,7 @@ interface NotificationCenterProps {
 }
 
 const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose }) => {
+<<<<<<< HEAD
   const [notifications, setNotifications] = useState<UINotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -158,6 +171,42 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
     }, 5 * 60 * 1000);
     return () => clearInterval(id);
   }, []);
+=======
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: '1',
+      type: 'warning',
+      title: 'Estoque Baixo',
+      message: '3 produtos estão com estoque abaixo do mínimo',
+      time: '5 min atrás',
+      read: false
+    },
+    {
+      id: '2',
+      type: 'success',
+      title: 'Pagamento Recebido',
+      message: 'Boleto #BOL001 foi pago por João Silva',
+      time: '1 hora atrás',
+      read: false
+    },
+    {
+      id: '3',
+      type: 'info',
+      title: 'Visita Agendada',
+      message: 'Nova visita marcada para amanhã às 14h',
+      time: '2 horas atrás',
+      read: true
+    },
+    {
+      id: '4',
+      type: 'error',
+      title: 'Boleto Vencido',
+      message: 'Boleto #BOL003 venceu hoje',
+      time: '3 horas atrás',
+      read: true
+    }
+  ]);
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -189,6 +238,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
     }
   };
 
+<<<<<<< HEAD
   const markAllAsRead = async () => {
     try {
       await notificationsService.markAllAsRead();
@@ -345,14 +395,33 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
       try { onClose(); } catch {}
     }
   };
+=======
+  const markAsRead = (id: string) => {
+    setNotifications(notifications.map(notification =>
+      notification.id === id ? { ...notification, read: true } : notification
+    ));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(notifications.map(notification => ({ ...notification, read: true })));
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
+<<<<<<< HEAD
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
       <div className="absolute right-0 top-0 h-full w-80 max-w-full bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out">
+=======
+      <div className="absolute inset-0 bg-black bg-opacity-25" onClick={onClose} />
+      
+      <div className="absolute right-0 top-0 h-full w-96 bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out">
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
@@ -361,16 +430,29 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Notificações
               </h2>
+<<<<<<< HEAD
             </div>
             <button
               onClick={onClose}
               className="rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
               aria-label="Fechar"
+=======
+              {unreadCount > 0 && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400">
+                  {unreadCount}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
+<<<<<<< HEAD
           {/* Tabs */}
           <div className="px-4 pt-3">
             <div className="flex items-center gap-4">
@@ -420,12 +502,23 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                 title="Remove todas as notificações já lidas"
               >
                 Limpar lidos
+=======
+          {/* Actions */}
+          {unreadCount > 0 && (
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+              <button
+                onClick={markAllAsRead}
+                className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                Marcar todas como lidas
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
               </button>
             </div>
           )}
 
           {/* Notifications List */}
           <div className="flex-1 overflow-y-auto">
+<<<<<<< HEAD
             {loading ? (
               <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" /> Carregando
@@ -435,6 +528,13 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                 <Bell className="h-12 w-12 text-gray-400 mb-4" />
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white">
                   {activeTab === 'unread' ? 'Nenhuma não lida' : 'Nenhuma lida ainda'}
+=======
+            {notifications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <Bell className="h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                  Nenhuma notificação
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Suas notificações aparecerão aqui
@@ -442,6 +542,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               </div>
             ) : (
               <div className="space-y-1">
+<<<<<<< HEAD
                 {Array.from(new Map(notifications.map((x) => [x.id, x])).values()).map((item) => {
                   const IconComp = getIcon(item.type);
                   const color = getIconColor(item.type);
@@ -474,12 +575,48 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                           <div className="flex items-center text-xs text-gray-500 dark:text-gray-500 mt-2">
                             <Clock className="h-3 w-3 mr-1" />
                             {item.time}
+=======
+                {notifications.map((notification) => {
+                  const Icon = getIcon(notification.type);
+                  const iconColor = getIconColor(notification.type);
+                  
+                  return (
+                    <div
+                      key={notification.id}
+                      className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
+                        !notification.read ? 'bg-blue-50 dark:bg-blue-900/10' : ''
+                      }`}
+                      onClick={() => markAsRead(notification.id)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0">
+                          <Icon className={`h-5 w-5 ${iconColor}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className={`text-sm font-medium ${
+                              !notification.read ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                            }`}>
+                              {notification.title}
+                            </p>
+                            {!notification.read && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {notification.message}
+                          </p>
+                          <div className="flex items-center text-xs text-gray-500 dark:text-gray-500 mt-2">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {notification.time}
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
                           </div>
                         </div>
                       </div>
                     </div>
                   );
                 })}
+<<<<<<< HEAD
                 {/* Pagination */}
                 {pages > 1 && (
                   <div className="flex items-center justify-between p-3">
@@ -500,6 +637,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                     </button>
                   </div>
                 )}
+=======
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
               </div>
             )}
           </div>

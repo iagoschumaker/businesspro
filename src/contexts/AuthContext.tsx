@@ -1,14 +1,26 @@
+<<<<<<< HEAD
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { authService, setAuthToken, User, meService } from '../services/api';
+=======
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authService, User } from '../services/api';
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
+<<<<<<< HEAD
   login: (email: string, password: string, tenantSubdomain?: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
   isAuthenticated: boolean;
   refreshUser: () => Promise<void>;
+=======
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  loading: boolean;
+  isAuthenticated: boolean;
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+<<<<<<< HEAD
   const refreshTimerRef = useRef<number | null>(null);
 
   // Define antecipadamente para evitar qualquer referência antes da declaração
@@ -133,16 +146,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string, tenantSubdomain?: string) => {
     try {
       const response = await authService.login(email, password, tenantSubdomain);
+=======
+
+  useEffect(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
+    setLoading(false);
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await authService.login(email, password);
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
       const { token: newToken, user: newUser } = response;
 
       setToken(newToken);
       setUser(newUser);
+<<<<<<< HEAD
       setAuthToken(newToken);
+=======
+      
+      localStorage.setItem('token', newToken);
+      localStorage.setItem('user', JSON.stringify(newUser));
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
     } catch (error) {
       throw error;
     }
   };
 
+<<<<<<< HEAD
   
 
   const logout = () => {
@@ -161,6 +195,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.location.href = '/login';
       }
     })();
+=======
+  const logout = () => {
+    // Limpar dados de autenticação
+    setToken(null);
+    setUser(null);
+    localStorage.clear(); // Limpa todo o localStorage, não apenas token e user
+    sessionStorage.clear(); // Limpa qualquer dado de sessão também
+    
+    // Implementação robusta para garantir o redirecionamento
+    try {
+      console.log('Executando logout...');
+      
+      // O redirecionamento principal agora será feito no componente Header
+      // para evitar problemas de redirecionamento em cadeia
+    } catch (error) {
+      console.error('Erro durante o logout:', error);
+      
+      // Em caso de erro, tenta o redirecionamento aqui também
+      window.location.href = '/login';
+    }
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   };
 
   const isAuthenticated = !!token && !!user;
@@ -172,6 +227,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login,
       logout,
       loading,
+<<<<<<< HEAD
       isAuthenticated,
       refreshUser
     }}>
@@ -185,6 +241,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ) : (
         children
       )}
+=======
+      isAuthenticated
+    }}>
+      {children}
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
     </AuthContext.Provider>
   );
 };

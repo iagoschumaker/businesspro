@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+<<<<<<< HEAD
 /* Padronização global: exibir tudo em MAIÚSCULO nos formulários */
 @layer base {
   /* Inputs e textareas (exceto senhas e login) */
@@ -25,3 +26,50 @@
 .no-uppercase-scope textarea:not(.login-textarea) {
   text-transform: none !important;
 }
+=======
+/* Estilos globais para garantir legibilidade em modo escuro */
+@layer base {
+  html.dark {
+    @apply bg-gray-900;
+  }
+  
+  html.dark body {
+    @apply text-gray-200;
+  }
+  
+  /* Garantir que textos sejam legíveis no modo escuro */
+  html.dark p, 
+  html.dark span, 
+  html.dark div,
+  html.dark li,
+  html.dark td,
+  html.dark th,
+  html.dark option,
+  html.dark label:not([class*="text-"]) {
+    @apply text-gray-200;
+  }
+  
+  /* Ajustar contraste de inputs e selects */
+  html.dark input:not([type="submit"]):not([type="button"]):not([class*="bg-"]),
+  html.dark select,
+  html.dark textarea {
+    @apply bg-gray-700 text-white border-gray-600;
+  }
+  
+  /* Ajustar cores de links */
+  html.dark a:not([class*="text-"]) {
+    @apply text-blue-400;
+  }
+  
+  /* Garantir cor clara para textos em tabelas */
+  html.dark table tbody tr td {
+    @apply text-gray-200;
+  }
+  
+  /* Garantir que os placeholders também sejam legíveis */
+  html.dark input::placeholder,
+  html.dark textarea::placeholder {
+    @apply text-gray-400;
+  }
+}
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b

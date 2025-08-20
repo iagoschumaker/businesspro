@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+<<<<<<< HEAD
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -13,6 +14,12 @@ export default defineConfig({
       },
     },
   },
+=======
+import path from 'path';
+
+// https://vitejs.dev/config/
+export default defineConfig({
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
   root: '.',
   plugins: [react()],
   optimizeDeps: {
@@ -20,7 +27,11 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+<<<<<<< HEAD
       input: 'index.html'
+=======
+      input: path.resolve(__dirname, 'index.html')
+>>>>>>> 5a4704ac2e2c756460ac5e41df854892cb2a6d8b
     }
   }
 });
